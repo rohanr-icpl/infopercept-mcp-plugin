@@ -1,0 +1,36 @@
+{
+  "name": "react-nextjs-best-practices-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that serves, searches and enforces React and Next.js frontend best practices",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "react-nextjs-best-practices-mcp": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node build/index.js",
+    "test": "npm run build && node scripts/smoke-test.mjs",
+    "setup": "node scripts/setup.mjs",
+    "build:plugin": "node scripts/build-plugin.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "build",
+    "templates"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@phosphor-icons/core": "^2.1.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "esbuild": "^0.25.0"
+  }
+}

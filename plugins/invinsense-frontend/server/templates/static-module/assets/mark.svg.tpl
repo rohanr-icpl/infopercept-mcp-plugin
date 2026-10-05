@@ -1,0 +1,2 @@
+<!-- PLACEHOLDER mark so the shell never shows a broken image. Replace with the official mark.svg from the shared Invinsense package. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="__ACCENT__"/><path d="M16 6l8 3v6.5c0 5-3.4 8.6-8 10.5-4.6-1.9-8-5.5-8-10.5V9l8-3z" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><path d="M12.5 16l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>

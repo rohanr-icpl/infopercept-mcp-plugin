@@ -1,0 +1,7 @@
+_to_delete/
+.DS_Store
+node_modules/
+mcp/build/
+*.tgz
+.env*
+*.zip

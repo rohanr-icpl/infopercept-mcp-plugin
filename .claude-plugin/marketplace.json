@@ -1,0 +1,13 @@
+{
+  "name": "infopercept-tools",
+  "owner": { "name": "Infopercept" },
+  "metadata": { "description": "Infopercept internal engineering plugins" },
+  "plugins": [
+    {
+      "name": "invinsense-frontend",
+      "source": "./plugins/invinsense-frontend",
+      "description": "Invinsense Module UI Guide v2.0 + React/Next.js best practices: scaffold new modules, convert existing products, review UI code.",
+      "category": "development"
+    }
+  ]
+}
