@@ -19,6 +19,11 @@ An MCP (Model Context Protocol) server that gives AI assistants a curated, searc
 | Tool | `invinsense_new_module_checklist` | 14-step checklist for a new module |
 | **Command** | `scaffold_invinsense_project` | Create a new project that follows the guide (`nextjs` or launcher `static-module`) |
 | **Command** | `add_invinsense_page` | Add a list, dashboard, detail, form or blank page to a Next.js module, with loading and error states and a sidebar link (preview first) |
+| **Command** | `score_invinsense_compliance` | Compliance score 0 to 100 with grade and the biggest wins (read-only; also shown by `convert_to_invinsense` and `audit_ui_components`) |
+| **Command** | `invinsense_hotspots` | Files ranked by violations, findings by rule with fix hints (read-only) |
+| **Command** | `invinsense_routes` | App Router routes with loading, error, empty-state and nav coverage (read-only) |
+| **Command** | `invinsense_tokens` | Token usage, hardcoded hex, undefined and unused tokens (read-only) |
+| **Command** | `invinsense_report` | Score, trend, hotspots, routes, tokens and component audit in one report; `save` writes `invinsense-report.md` and `.invinsense/history.json` |
 | **Command** | `audit_ui_components` | Report which components come from invin-uix, local code and third-party libraries, with replacements (read-only) |
 | **Command** | `convert_to_invinsense` | Audit an existing product and apply the safe fixes (preview first, backups, git-safe) |
 | Resource | `bestpractice://{id}`, `bestpractice://all`, `bestpractice://invinsense/guide` | Markdown guides / full handbook / Invinsense guide |

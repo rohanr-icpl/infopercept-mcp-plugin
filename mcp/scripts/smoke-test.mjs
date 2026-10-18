@@ -9,7 +9,7 @@ const client = new Client({ name: "smoke", version: "0.0.0" });
 await client.connect(new StdioClientTransport({ command: "node", args: [process.env.SERVER_ENTRY || "build/index.js"] }));
 
 const tools = (await client.listTools()).tools.map((t) => t.name);
-for (const t of ["list_best_practices", "get_best_practice", "search_best_practices", "review_code", "scaffold_component", "suggest_project_structure", "pre_merge_checklist", "review_invinsense_ui", "get_invinsense_tokens", "invinsense_new_module_checklist", "scaffold_invinsense_project", "convert_to_invinsense", "add_invinsense_page", "audit_ui_components"])
+for (const t of ["list_best_practices", "get_best_practice", "search_best_practices", "review_code", "scaffold_component", "suggest_project_structure", "pre_merge_checklist", "review_invinsense_ui", "get_invinsense_tokens", "invinsense_new_module_checklist", "scaffold_invinsense_project", "convert_to_invinsense", "add_invinsense_page", "audit_ui_components", "score_invinsense_compliance", "invinsense_hotspots", "invinsense_routes", "invinsense_tokens", "invinsense_report"])
   assert.ok(tools.includes(t), `missing tool ${t}`);
 
 const bad = `"use client";
@@ -107,7 +107,14 @@ assert.ok(/@layer base/.test(fs.readFileSync(path.join(nextDir, "src/app/globals
     assert.ok(r.isError, `rejects route ${bad}`);
   }
   const audit = (await client.callTool({ name: "audit_ui_components", arguments: { path: proj } })).content[0].text;
-  assert.ok(audit.includes("invin-uix/ui/kpi-card") && audit.includes("Third-party UI libraries") && audit.includes("None. ✅"), "audit reports invin-uix usage and no third-party UI");
+  const genScore = (await client.callTool({ name: "score_invinsense_compliance", arguments: { path: proj } })).content[0].text;
+  assert.ok(Number((genScore.match(/:\s*(\d+)\/100/) ?? [])[1]) >= 90, "a fresh scaffold with added pages must score A\n" + genScore);
+  const rt = (await client.callTool({ name: "invinsense_routes", arguments: { path: proj } })).content[0].text;
+  assert.ok(rt.includes("`/reports`") && rt.includes("Every route has loading, error and empty handling"), "fresh scaffold routes must be fully covered\n" + rt);
+  const tkn = (await client.callTool({ name: "invinsense_tokens", arguments: { path: proj } })).content[0].text;
+  const undefSection = tkn.split("Used but not defined")[1]?.split("## ")[0] ?? "";
+  assert.ok(!/^\| `--/m.test(undefSection), tkn);
+  assert.ok(audit.includes("compliance score") && audit.includes("invin-uix/ui/kpi-card") && audit.includes("Third-party UI libraries") && audit.includes("None. ✅"), "audit reports invin-uix usage and no third-party UI");
 }
 const again = await client.callTool({ name: "scaffold_invinsense_project", arguments: { name: "case-next", productName: "Case", family: "uemp", targetDir: tmp } });
 assert.ok(again.isError, "must refuse to overwrite a non-empty folder");
@@ -124,12 +131,17 @@ fs.writeFileSync(path.join(legacy, "css", "app.css"), ".btn{background:#2769fc;c
 const sh = (cmd) => import("node:child_process").then((m) => m.execSync(cmd, { cwd: legacy, stdio: "pipe" }));
 await sh("git init -q && git add -A && git -c user.email=a@b.c -c user.name=t commit -qm init");
 
+const scoreOf = (t) => Number((t.match(/:\s*(\d+)\/100/) ?? [])[1]);
 const audit = (await client.callTool({ name: "convert_to_invinsense", arguments: { path: legacy, family: "isoc-core", mode: "audit" } })).content[0].text;
 assert.ok(audit.includes("AUDIT") && audit.includes("hardcoded-hex") && audit.includes("Structural gaps"), audit);
 assert.ok(!audit.includes("node_modules"), "must skip node_modules");
+assert.ok(/Compliance score: \d+\/100, grade [A-F]/.test(audit), "audit shows a score");
+const legacyScore = scoreOf(audit);
+assert.ok(legacyScore < 70, `legacy fixture should score low, got ${legacyScore}`);
 
 const before = fs.readFileSync(path.join(legacy, "css", "app.css"), "utf8");
 const preview = (await client.callTool({ name: "convert_to_invinsense", arguments: { path: legacy, family: "isoc-core", mode: "apply", colorMap: { "#1a73e8": "var(--primary)" } } })).content[0].text;
+assert.ok(/Projected compliance score after fixes: \d+\/100.*was \d+\/100/.test(preview), "apply preview shows projected score vs before");
 assert.ok(preview.includes("DRY RUN") && fs.readFileSync(path.join(legacy, "css", "app.css"), "utf8") === before, "dry run must not modify files");
 
 fs.writeFileSync(path.join(legacy, "dirty.txt"), "x");
@@ -150,8 +162,18 @@ assert.ok(html.includes('data-theme="dark"') && html.includes("invinsense-tokens
 assert.ok(fs.existsSync(path.join(legacy, "css", "invinsense-tokens.css")));
 assert.ok(fs.existsSync(path.join(legacy, "INVINSENSE_MIGRATION.md")));
 assert.ok(fs.readdirSync(path.join(legacy, ".invinsense-backup")).length === 1, "backup created");
+const reScore = (await client.callTool({ name: "score_invinsense_compliance", arguments: { path: legacy } })).content[0].text;
+assert.ok(scoreOf(reScore) > legacyScore, `score must improve after conversion (${legacyScore} -> ${scoreOf(reScore)})`);
 const reaudit = (await client.callTool({ name: "convert_to_invinsense", arguments: { path: legacy, family: "isoc-core", mode: "audit" } })).content[0].text;
 assert.ok(!reaudit.includes("[hardcoded-hex]") && !reaudit.includes("[font-below-12]") && reaudit.includes("[side-stripe]"), reaudit);
+const hs = (await client.callTool({ name: "invinsense_hotspots", arguments: { path: legacy } })).content[0].text;
+assert.ok(hs.includes("Hotspots") && hs.includes("Findings by rule") === !hs.includes("No findings"), hs);
+const tk = (await client.callTool({ name: "invinsense_tokens", arguments: { path: legacy } })).content[0].text;
+assert.ok(tk.includes("Tokens:"), tk);
+const rp = (await client.callTool({ name: "invinsense_report", arguments: { path: legacy, save: true } })).content[0].text;
+assert.ok(rp.includes("## Score") && rp.includes("Hotspots") && fs.existsSync(path.join(legacy, "invinsense-report.md")) && fs.existsSync(path.join(legacy, ".invinsense", "history.json")), rp);
+const rp2 = (await client.callTool({ name: "invinsense_report", arguments: { path: legacy } })).content[0].text;
+assert.ok(rp2.includes("## Trend"), "second run must show a trend");
 fs.rmSync(tmp, { recursive: true, force: true });
 
 const scaffold = await client.callTool({ name: "scaffold_component", arguments: { name: "UserCard", kind: "client" } });

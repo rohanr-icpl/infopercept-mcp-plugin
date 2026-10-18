@@ -104,17 +104,14 @@ function availableUix(root: string): string[] | null {
 const kebab = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 const pct = (n: number, d: number) => (d === 0 ? "0%" : `${Math.round((n / d) * 100)}%`);
 
-export function auditComponents(o: AuditOptions): string {
-  const root = o.path;
-  if (!existsSync(root)) throw new Error(`Path does not exist: ${root}`);
-
+export function collectComponents(root: string, maxFiles: number) {
+  const walked = walkSources(root, { maxFiles, maxBytes: 1_000_000 });
   const pkgPath = join(root, "package.json");
   const pkg = existsSync(pkgPath)
     ? (JSON.parse(readFileSync(pkgPath, "utf8")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> })
     : {};
   const declared: Record<string, string> = { ...pkg.devDependencies, ...pkg.dependencies };
 
-  const walked = walkSources(root, { maxFiles: o.maxFiles, maxBytes: 1_000_000 });
   const files = walked.files.filter((f) => SCRIPT_EXT.test(f));
 
   type Agg = { imports: number; files: Set<string>; uses: number; names: Set<string> };
@@ -171,6 +168,15 @@ export function auditComponents(o: AuditOptions): string {
       }
     }
   }
+
+  return { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles };
+}
+
+export function auditComponents(o: AuditOptions): string {
+  const root = o.path;
+  if (!existsSync(root)) throw new Error(`Path does not exist: ${root}`);
+
+  const { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles } = collectComponents(root, o.maxFiles);
 
   const uixUses = [...uix.values()].reduce((n, a) => n + a.uses, 0);
   const uixImports = [...uix.values()].reduce((n, a) => n + a.imports, 0);

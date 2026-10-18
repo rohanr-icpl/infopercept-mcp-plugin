@@ -2,7 +2,7 @@
 
 Build Invinsense modules that follow the **Invinsense Module UI Guide v2.0** and React/Next.js best practices. One plugin gives you commands to create a project, add pages, convert an existing product and audit components, plus a review tool and a skill that applies the guide automatically.
 
-- **Version:** 1.1.0
+- **Version:** 1.3.0
 - **Needs:** Node 18 or later. No `npm install` is required to run the plugin.
 - **Works in:** Claude Code and the Claude desktop app (commands, skill and MCP tools). Every other MCP-capable agent can use the MCP tools. See [Use it in other agents](#4-use-it-in-other-agents).
 
@@ -12,9 +12,9 @@ Build Invinsense modules that follow the **Invinsense Module UI Guide v2.0** and
 
 | Part | What it does |
 |---|---|
-| **5 slash commands** | `new-project`, `new-page`, `convert`, `audit-components`, `review` |
+| **10 slash commands** | `new-project`, `new-page`, `convert`, `audit-components`, `score`, `hotspots`, `routes`, `tokens`, `report`, `review` |
 | **Skill `invinsense-ui`** | Claude applies the guide on its own whenever you build or edit Invinsense UI, no command needed |
-| **MCP server `invinsense`** | 14 tools, 46 resources and 5 prompts that do the real work (see [Tool reference](#5-tool-reference)) |
+| **MCP server `invinsense`** | 19 tools, 46 resources and 5 prompts that do the real work (see [Tool reference](#5-tool-reference)) |
 
 The commands are thin: they tell Claude which MCP tool to call and in what order. The MCP server does the generating, converting and checking, so results are identical in every agent.
 
@@ -149,6 +149,120 @@ Example summary:
 | Local components | 27 | 82% |
 | Third-party UI libraries | 0 | 0% |
 
+### Visibility commands: `hotspots`, `routes`, `tokens`, `report`
+
+All read-only (`report` writes only if you say `save`). Pass a path or run them in the project root.
+
+| Command | What you see | Example |
+|---|---|---|
+| `/invinsense-frontend:hotspots [path] [top N]` | Files ranked by weighted violations, each file's share of the total, findings by rule with a fix hint, and how many lines carry `invinsense-allow` | `/invinsense-frontend:hotspots ./my-app 5` |
+| `/invinsense-frontend:routes [path]` | Every App Router page with loading, error, empty state, invin-uix usage, navigation link and client/server. Parent `loading.tsx` / `error.tsx` count. Login and redirect-only pages are skipped | `/invinsense-frontend:routes` |
+| `/invinsense-frontend:tokens [path]` | Most used tokens, files with hardcoded hex, `var(--x)` that resolve to nothing, tokens defined but unused. Tokens provided by invin-uix are recognised | `/invinsense-frontend:tokens` |
+| `/invinsense-frontend:report [path] [save]` | Score, trend, hotspots, routes, tokens and the component audit in one document | `/invinsense-frontend:report save` |
+
+`report save` writes `invinsense-report.md` and appends the score to `.invinsense/history.json`. Run it on each release and the **Trend** table shows the last 7 runs. Commit the history file to share the trend, or gitignore both.
+
+#### Demo: the visibility commands on a project with problems
+
+Output below is from a copy of a clean module with a broken `reports` page and bad CSS added.
+
+`/invinsense-frontend:hotspots` shows which file to fix first:
+
+```
+| File                             | Errors | Warnings | Weighted | Share |
+| src/app/globals.css              | 2      | 3        | 9        | 69%   |
+| src/app/(app)/reports/page.tsx   | 1      | 1        | 4        | 31%   |
+
+| Rule             | Severity | Count | How to fix                                         |
+| hardcoded-hex    | error    | 2     | Replace with a CSS variable. `convert` fixes most. |
+| font-below-12    | error    | 1     | Raise to 12px or more.                             |
+| chart-library    | warning  | 1     | Use invin-uix/ui/chart                             |
+```
+
+`/invinsense-frontend:routes` shows what each page is missing:
+
+```
+| Route       | Loading | Error | Empty | invin-uix | In nav |
+| /dashboard  | yes     | yes   | yes   | 4         | yes    |
+| /items      | yes     | yes   | yes   | 0         | yes    |
+| /reports    | no      | no    | no    | 0         | no     |
+
+To fix
+- 1 route(s) have no loading.tsx, so users get no skeleton.
+- 1 route(s) have no error.tsx, so failures show the framework default.
+- 1 data page(s) show no empty state when the list is empty.
+- 1 route(s) are not linked from the navigation.
+```
+
+`/invinsense-frontend:tokens` shows token health:
+
+```
+2 hardcoded hex value(s) outside the accent definitions
+| src/app/(app)/reports/page.tsx | 1 |
+| src/app/globals.css            | 1 |
+```
+
+`/invinsense-frontend:report save`, run twice with a fix in between, gives the score and a trend:
+
+```
+Score: 85/100, grade B (+4 since last run)
+| Guide violations   | 36.5/50 |
+| Structural gaps    | 30/30   |
+| Component adoption | 18.2/20 |
+Biggest win: fix `hardcoded-hex` (2x): +8 pts
+
+Trend
+| Date              | Score | Grade | Errors | Warnings |
+| 2026-10-18        | 81    | B     | 3      | 4        |
+| 2026-10-18 (now)  | 85    | B     | 2      | 4        |
+```
+
+#### Typical workflow
+
+```
+/invinsense-frontend:new-project                  # scaffold, scores 100
+/invinsense-frontend:new-page reports list        # add a route (page + loading + error)
+/invinsense-frontend:report save                  # baseline, writes invinsense-report.md
+# ...build features...
+/invinsense-frontend:hotspots                     # what is worst?
+/invinsense-frontend:review src/app/globals.css   # fix that file
+/invinsense-frontend:routes                       # any page missing a state?
+/invinsense-frontend:report save                  # trend goes up
+```
+
+For an existing product, run `convert` first (dry run, then apply), then `report save` to get a before and after.
+
+In agents without slash commands (Kiro, Cursor and others), ask in plain words: "Run `invinsense_hotspots` on `/abs/path/app`". The tool names are `invinsense_hotspots`, `invinsense_routes`, `invinsense_tokens` and `invinsense_report`.
+
+### `/invinsense-frontend:score [path]`
+
+Gives the project one **compliance score out of 100** with a letter grade, a per-category breakdown and the five changes that would gain the most points. Read-only.
+
+```
+/invinsense-frontend:score
+/invinsense-frontend:score ./my-app
+```
+
+Example:
+
+| Category | Score | Detail |
+|---|---:|---|
+| Guide violations | 38.5/50 | 3 error(s), 11 warning(s) in 6 file(s), 6.9 weighted per 1,000 lines |
+| Structural gaps | 24/30 | 8 of 10 in place. Missing: tour, states |
+| Component adoption | 12.4/20 | 18% invin-uix, 0% third-party UI libraries (0 package(s)) |
+
+How it is calculated (internal measure, not part of the Module UI Guide):
+
+| Category | Points | How |
+|---|---:|---|
+| Guide violations | 50 | Findings per 1,000 lines, errors count 3 and warnings 1. No findings = 50; 30 weighted per 1,000 lines = 0. Tiny projects are measured as at least 500 lines. |
+| Structural gaps | 30 | 10 checklist items at 3 points each: tokens, theme, fonts, icons, shell, nav links, four states, tour, reduced motion, charts. |
+| Component adoption | 20 | 10 for avoiding third-party UI libraries (scaled by their share of component usages) and 10 for `invin-uix` usage (full marks at 25% of component usages). |
+
+Grades: **A** 90+, **B** 80+, **C** 70+, **D** 60+, **F** below 60.
+
+The score also appears automatically at the top of `convert` (in apply mode as "projected score after fixes, was N") and at the end of `audit-components`, and `review` reports it when you review a folder.
+
 ### `/invinsense-frontend:review <file-or-folder>`
 
 Reviews code against the guide (colours, fonts, motion, states, accessibility and about 30 more rules) and, for React or Next.js files, against the general best practices. Findings are grouped as 🔴 must fix, 🟡 should fix, 🔵 note, each with the law it breaks and a concrete fix. With no argument it reviews the files in your current git diff.
@@ -180,6 +294,8 @@ git add -A && git commit -m "before invinsense conversion"
 /invinsense-frontend:convert ./my-product uemp apply    # apply safe fixes
 /invinsense-frontend:audit-components ./my-product      # find third-party UI to replace
 ```
+
+**Track progress:** run `/invinsense-frontend:score` before and after a change. A fresh scaffold scores 100.
 
 **Before every merge:** `/invinsense-frontend:review`, then `npm run build`.
 
@@ -265,7 +381,7 @@ args = ["/abs/path/to/server/index.mjs"]
 }
 ```
 
-Restart the agent after saving, then ask it to list its MCP tools. You should see 14 tools starting with `list_best_practices`.
+Restart the agent after saving, then ask it to list its MCP tools. You should see 19 tools starting with `list_best_practices`.
 
 ### Commands in other agents: just ask
 
@@ -278,6 +394,7 @@ Without slash commands, say what you want and name the tool. The agent calls the
 | `convert ./app uemp` | "Use `convert_to_invinsense` to audit `/abs/path/app` for the UEMP family. Do not apply yet." |
 | `convert ./app uemp apply` | "Apply the safe fixes with `convert_to_invinsense` (dry run first, then write)." |
 | `audit-components ./app full` | "Run `audit_ui_components` on `/abs/path/app` with detail full." |
+| `score ./app` | "Run `score_invinsense_compliance` on `/abs/path/app` and tell me the biggest wins." |
 | `review src/` | "Run `review_invinsense_ui` on these files and fix every red finding." |
 
 Tips for other agents:
@@ -297,7 +414,12 @@ Tips for other agents:
 | `scaffold_invinsense_project` | Create a new Next.js or static module | Yes (dry run available) |
 | `add_invinsense_page` | Add a list, dashboard, detail, form or blank page and a nav link | Yes (dry run default) |
 | `convert_to_invinsense` | Audit or convert an existing product | Only in apply mode (dry run default, backups, git-safe) |
-| `audit_ui_components` | invin-uix vs local vs third-party report | No |
+| `score_invinsense_compliance` | Compliance score 0 to 100 with grade and biggest wins | No |
+| `invinsense_hotspots` | Worst files and findings by rule | No |
+| `invinsense_routes` | Route inventory with state coverage | No |
+| `invinsense_tokens` | Token usage and health | No |
+| `invinsense_report` | Full report with trend | Only with `save` |
+| `audit_ui_components` | invin-uix vs local vs third-party report (plus the score) | No |
 | `review_invinsense_ui` | Check code against the Module UI Guide | No |
 | `get_invinsense_tokens` | Token CSS for a product family | No |
 | `invinsense_new_module_checklist` | The 14-step new module checklist | No |

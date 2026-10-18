@@ -13,6 +13,8 @@ When working on Invinsense module UI or React/Next.js code:
 4. Follow `invinsense_new_module_checklist` when adding a module, and `pre_merge_checklist` before merge.
 5. To add a page or route to a Next.js module, use `add_invinsense_page` (dry run first); never hand-write the page, loading and error files.
 6. To see which components come from invin-uix versus third-party libraries, use `audit_ui_components`, and prefer invin-uix components for charts, tables, KPI cards and badges.
-7. Use `search_best_practices` / `get_best_practice` to look up a rule instead of guessing.
+7. To measure a project, use `score_invinsense_compliance` (0 to 100 with grade and biggest wins) and report it before and after significant changes.
+8. For visibility use `invinsense_hotspots` (worst files), `invinsense_routes` (loading, error, empty and nav coverage per route), `invinsense_tokens` (token health) and `invinsense_report` (everything plus a score trend; save=true only when asked).
+8. Use `search_best_practices` / `get_best_practice` to look up a rule instead of guessing.
 
 Key rules: OKLCH tokens with `html[data-theme]` dark/light, Geist fonts, Phosphor Bold icons, 12px minimum text, animate only transform/opacity with ease-out, handle all four states (loading, empty, error, data), and end CSS with a reduced-motion block.

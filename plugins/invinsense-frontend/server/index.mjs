@@ -2981,7 +2981,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve3.call(this, root, ref);
+      let _sch = resolve5.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3008,7 +3008,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve3(root, ref) {
+    function resolve5(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3838,7 +3838,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve3(baseURI, relativeURI, options) {
+    function resolve5(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -4207,7 +4207,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve3,
+      resolve: resolve5,
       resolveComponent,
       equal,
       serialize,
@@ -19306,7 +19306,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+        await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -19323,7 +19323,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve5, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -19401,7 +19401,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve3(parseResult.data);
+            resolve5(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -19662,12 +19662,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve5, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve3, interval);
+      const timeoutId = setTimeout(resolve5, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -20980,7 +20980,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+      await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -21668,12 +21668,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve5) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve3();
+        resolve5();
       } else {
-        this._stdout.once("drain", resolve3);
+        this._stdout.once("drain", resolve5);
       }
     });
   }
@@ -23061,8 +23061,8 @@ function validateName(name) {
 }
 function buildModuleCss(familyId, productName) {
   const tpl = readFileSync(join2(templatesRoot, "shared", "module.css.tpl"), "utf8");
-  const tokens = tokensCss(familyId, { reducedMotion: false });
-  return tpl.replace("__TOKENS_CSS__", () => tokens).replace("__REDUCED_MOTION_CSS__", () => REDUCED_MOTION_CSS).replace(/__PRODUCT_NAME__/g, productName);
+  const tokens2 = tokensCss(familyId, { reducedMotion: false });
+  return tpl.replace("__TOKENS_CSS__", () => tokens2).replace("__REDUCED_MOTION_CSS__", () => REDUCED_MOTION_CSS).replace(/__PRODUCT_NAME__/g, productName);
 }
 function renderProject(o) {
   const fam = families.find((f) => f.id === o.family);
@@ -23104,8 +23104,381 @@ function scaffoldProject(o) {
 }
 
 // src/convert.ts
-import { copyFileSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync2, statSync as statSync3, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname2, extname, join as join3, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
+import { copyFileSync, existsSync as existsSync5, mkdirSync as mkdirSync2, readFileSync as readFileSync4, statSync as statSync3, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname2, extname, join as join5, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
+
+// src/gaps.ts
+function structuralGaps(all, deps) {
+  const gap = (id, title, present, how, practiceId) => ({ id, title, present, how, practiceId });
+  const gaps = [
+    gap("tokens", "Shared OKLCH token set (section 05)", /--background\s*:/.test(all) && /--accent\s*:/.test(all), "Adopt the token block verbatim; set --accent to the family pair.", "invinsense-tokens"),
+    gap("theme", "Theme via html[data-theme], restored before first paint", /data-theme/.test(all), "Add the attribute, a topbar toggle and a pre-paint restore script.", "invinsense-theme"),
+    gap("fonts", "Geist and Geist Mono", /geist/i.test(all) || deps.some((d) => /geist/i.test(d)), "Self-host Geist (next/font with the geist package in Next.js).", "invinsense-typography"),
+    gap("icons", "Phosphor Bold icons", /phosphor/i.test(all) || deps.some((d) => /phosphor/i.test(d)), 'Replace other icon sets with @phosphor-icons/react (weight="bold").', "invinsense-icons"),
+    gap("shell", "One shell: 262px sidebar, 58px topbar, fixed control order", /sidebar-w|262px/.test(all) && /topbar/i.test(all), "Rebuild the layout on the shared shell (scaffold_invinsense_project shows the reference).", "invinsense-principles"),
+    gap("nav-links", "Navigation is links with aria-current", /aria-current/.test(all), "Use <a href> / next/link with aria-current='page' derived from the route.", "invinsense-navigation"),
+    gap("states", "Four states (loading, empty, error, partial)", /skeleton/i.test(all) && /empty/i.test(all) && /correlation/i.test(all), "Add skeleton, empty (with next action), error (correlation ID + retry) and partial states to every fetching view.", "invinsense-four-states"),
+    gap("tour", "Guided tour (nextstepjs 2.2.0)", /nextstepjs|tour/i.test(all) || deps.includes("nextstepjs"), "Add a specific, replayable tour that auto-starts once.", "invinsense-tour"),
+    gap("reduced-motion", "prefers-reduced-motion block", /prefers-reduced-motion/.test(all), "Add the block last in the stylesheet.", "invinsense-motion-a11y"),
+    gap("charts", "reaviz for charts", !deps.some((d) => /recharts|chart\.js|apexcharts|highcharts|victory|nivo/.test(d)), "Move charts to reaviz; keep recharts only where it already works.", "invinsense-charts")
+  ];
+  return gaps;
+}
+
+// src/audit.ts
+import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
+import { builtinModules } from "node:module";
+import { basename, join as join3 } from "node:path";
+var BUILTINS = new Set(builtinModules.map((m) => m.replace(/^node:/, "")));
+var SCRIPT_EXT = /\.(tsx?|jsx?|mjs|cjs)$/;
+var UI_LIBS = [
+  { re: /^(@mui\/|@emotion\/|@chakra-ui\/|antd$|@ant-design\/|@mantine\/|@nextui-org\/|@heroui\/|react-bootstrap|bootstrap$|reactstrap|primereact|semantic-ui|@blueprintjs\/|rsuite|@fluentui\/|@headlessui\/|@radix-ui\/|@tremor\/|daisyui|flowbite)/, kind: "UI kit", hint: "Replace with invin-uix components (Button, Badge, Card, Avatar, Alert, Switch, Separator, Skeleton, DataTable, KpiCard\u2026)." },
+  { re: /^(recharts|chart\.js|react-chartjs-2|apexcharts|react-apexcharts|victory|@nivo\/|echarts|echarts-for-react|highcharts|@visx\/|react-vis|reaviz)/, kind: "Charts", hint: "Use invin-uix/ui/chart (AreaChart, BarChart, DonutChart, GaugeChart). The guide mandates reaviz-based charts via the library." },
+  { re: /^(@tanstack\/react-table|react-table|ag-grid|@ag-grid|@mui\/x-data-grid|react-data-grid|material-react-table)/, kind: "Data table", hint: "Use invin-uix/ui/data-table." },
+  { re: /^(react-icons|lucide-react|@heroicons\/|@fortawesome\/|@tabler\/|@mui\/icons|feather-icons|react-feather|@iconify)/, kind: "Icons", hint: "Law 11: Phosphor Bold only. Use @phosphor-icons/react." },
+  { re: /^(react-joyride|react-shepherd|shepherd\.js|driver\.js|intro\.js|react-intro\.js|reactour|@reactour\/)/, kind: "Tour", hint: "Guide section 16: use nextstepjs 2.2.0." },
+  { re: /^(react-toastify|react-hot-toast|sonner|notistack|react-simple-toasts)/, kind: "Toasts", hint: "Use the invin-uix toast/alert pattern (guide section 13)." },
+  { re: /^(react-datepicker|react-day-picker|@mui\/x-date-pickers|react-calendar|flatpickr)/, kind: "Date picker", hint: "Use invin-uix/ui/calendar if available." },
+  { re: /^(react-select|react-dropdown|downshift|cmdk)/, kind: "Select / combobox", hint: "Use the invin-uix select/combobox primitives if available." },
+  { re: /^(react-modal|sweetalert|@sweetalert2\/|react-responsive-modal)/, kind: "Modal", hint: "Use invin-uix dialog/modal primitives if available." },
+  { re: /^(styled-components|@stitches\/|@vanilla-extract\/|linaria|twin\.macro)/, kind: "CSS-in-JS", hint: "Use module tokens (CSS variables) and the shell classes; no CSS-in-JS runtime." }
+];
+var pkgName = (spec) => spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
+function classify(spec) {
+  if (spec.startsWith(".") || spec.startsWith("@/") || spec.startsWith("~/") || spec.startsWith("#") || spec.startsWith("src/")) return "local";
+  const pkg = pkgName(spec);
+  if (spec.startsWith("node:") || BUILTINS.has(pkg)) return "node";
+  if (pkg === "invin-uix") return "invin-uix";
+  if (pkg === "react" || pkg === "react-dom" || pkg === "next" || pkg === "server-only" || pkg === "client-only") return "framework";
+  if (pkg.startsWith("@phosphor-icons/")) return "icons";
+  if (pkg === "geist") return "fonts";
+  if (pkg === "nextstepjs") return "tour";
+  return "third-party";
+}
+function namesFromClause(clause) {
+  const names = [];
+  const trimmed = clause.trim();
+  const brace = trimmed.match(/\{([\s\S]*)\}/);
+  const head = trimmed.replace(/\{[\s\S]*\}/, "").replace(/,/g, " ").trim();
+  if (head && !head.startsWith("*")) names.push(head.split(/\s+/)[0]);
+  if (head.startsWith("*")) {
+    const ns = head.match(/as\s+(\w+)/);
+    if (ns?.[1]) names.push(ns[1]);
+  }
+  if (brace?.[1]) {
+    for (const part of brace[1].split(",")) {
+      const p = part.trim();
+      if (!p || p.startsWith("type ")) continue;
+      const alias = p.split(/\s+as\s+/);
+      names.push((alias[1] ?? alias[0] ?? "").trim());
+    }
+  }
+  return names.filter((n) => /^[A-Za-z_$][\w$]*$/.test(n));
+}
+function parseImports(src, file) {
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const out = [];
+  const add = (spec, names) => out.push({ spec, pkg: classify(spec) === "local" ? spec : pkgName(spec), origin: classify(spec), names, file });
+  for (const m of code.matchAll(/\bimport\s+(type\s+)?([\w*$\s{},]+?)\s+from\s*["']([^"']+)["']/g)) {
+    if (m[1]) continue;
+    add(m[3], namesFromClause(m[2]));
+  }
+  for (const m of code.matchAll(/\bimport\s*["']([^"']+)["']/g)) add(m[1], []);
+  for (const m of code.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)) add(m[1], []);
+  for (const m of code.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)) add(m[1], []);
+  return out;
+}
+function jsxUses(src, name) {
+  if (!/^[A-Z]/.test(name)) return 0;
+  const esc2 = name.replace(/\$/g, "\\$");
+  return (src.match(new RegExp(`<${esc2}(?=[\\s/>.<])`, "g")) ?? []).length;
+}
+function availableUix(root) {
+  const pj = join3(root, "node_modules", "invin-uix", "package.json");
+  if (!existsSync3(pj)) return null;
+  try {
+    const exp = JSON.parse(readFileSync2(pj, "utf8")).exports ?? {};
+    return Object.keys(exp).filter((k) => k.startsWith("./ui/")).map((k) => k.slice(5)).filter((k) => k !== "lib/utils");
+  } catch {
+    return null;
+  }
+}
+var kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+var pct = (n, d) => d === 0 ? "0%" : `${Math.round(n / d * 100)}%`;
+function collectComponents(root, maxFiles) {
+  const walked = walkSources(root, { maxFiles, maxBytes: 1e6 });
+  const pkgPath = join3(root, "package.json");
+  const pkg = existsSync3(pkgPath) ? JSON.parse(readFileSync2(pkgPath, "utf8")) : {};
+  const declared = { ...pkg.devDependencies, ...pkg.dependencies };
+  const files = walked.files.filter((f) => SCRIPT_EXT.test(f));
+  const mk = () => ({ imports: 0, files: /* @__PURE__ */ new Set(), uses: 0, names: /* @__PURE__ */ new Set() });
+  const uix = /* @__PURE__ */ new Map();
+  const third = /* @__PURE__ */ new Map();
+  const local = mk();
+  const frameworkUses = { n: 0 };
+  const iconsUses = mk();
+  const filesWithUix = /* @__PURE__ */ new Set();
+  const localComponentFiles = [];
+  for (const f of files) {
+    let src;
+    try {
+      src = readFileSync2(f, "utf8");
+    } catch {
+      continue;
+    }
+    const r = rel(root, f);
+    if (/(^|\/)components?\//i.test(r) && /\.(tsx|jsx)$/.test(f)) localComponentFiles.push(f);
+    for (const imp of parseImports(src, r)) {
+      const uses = imp.names.reduce((n, nm) => n + jsxUses(src, nm), 0);
+      if (imp.origin === "invin-uix") {
+        const a = uix.get(imp.spec) ?? mk();
+        a.imports++;
+        a.files.add(r);
+        a.uses += uses;
+        imp.names.forEach((n) => a.names.add(n));
+        uix.set(imp.spec, a);
+        filesWithUix.add(r);
+      } else if (imp.origin === "third-party") {
+        const a = third.get(imp.pkg) ?? { ...mk(), uiLike: UI_LIBS.some((l) => l.re.test(imp.pkg)) };
+        a.imports++;
+        a.files.add(r);
+        a.uses += uses;
+        if (uses > 0) a.uiLike = true;
+        imp.names.forEach((n) => a.names.add(n));
+        third.set(imp.pkg, a);
+      } else if (imp.origin === "local") {
+        if (uses > 0) {
+          local.imports++;
+          local.files.add(r);
+          local.uses += uses;
+          imp.names.filter((n) => jsxUses(src, n) > 0).forEach((n) => local.names.add(n));
+        }
+      } else if (imp.origin === "icons") {
+        iconsUses.imports++;
+        iconsUses.files.add(r);
+        iconsUses.uses += uses;
+      } else if (imp.origin === "framework") {
+        frameworkUses.n += uses;
+      }
+    }
+  }
+  return { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles };
+}
+function auditComponents(o) {
+  const root = o.path;
+  if (!existsSync3(root)) throw new Error(`Path does not exist: ${root}`);
+  const { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles } = collectComponents(root, o.maxFiles);
+  const uixUses = [...uix.values()].reduce((n, a) => n + a.uses, 0);
+  const uixImports = [...uix.values()].reduce((n, a) => n + a.imports, 0);
+  const thirdUi = [...third.entries()].filter(([, a]) => a.uiLike);
+  const thirdOther = [...third.entries()].filter(([, a]) => !a.uiLike);
+  const thirdUiUses = thirdUi.reduce((n, [, a]) => n + a.uses, 0);
+  const total = uixUses + local.uses + thirdUiUses;
+  const avail = availableUix(root);
+  const usedSubpaths = new Set([...uix.keys()].map((k) => k.replace(/^invin-uix\/ui\//, "")));
+  const L = [];
+  L.push(`# UI component audit: ${basename(root)}`, "");
+  L.push(`Scanned ${files.length} source files${walked.truncated ? " (truncated, raise maxFiles for a full scan)" : ""}.`, "");
+  if (!declared["invin-uix"]) {
+    L.push("\u26A0\uFE0F `invin-uix` is NOT in package.json. Install it (`npm i invin-uix`) and add Tailwind v4 (`npm i -D tailwindcss @tailwindcss/postcss`). The scaffolds from `new-project` already include this setup.", "");
+  }
+  L.push("## Summary", "");
+  L.push("| Source | Component usages (JSX) | Share |", "|---|---:|---:|");
+  L.push(`| invin-uix | ${uixUses} | ${pct(uixUses, total)} |`);
+  L.push(`| Local components (this project) | ${local.uses} | ${pct(local.uses, total)} |`);
+  L.push(`| Third-party UI libraries | ${thirdUiUses} | ${pct(thirdUiUses, total)} |`);
+  L.push(`| Total | ${total} | 100% |`, "");
+  L.push(`- invin-uix: ${uix.size} entry points, ${uixImports} imports in ${filesWithUix.size} files`);
+  L.push(`- Third-party UI packages: ${thirdUi.length}${thirdUi.length ? ` (${thirdUi.map(([n]) => n).join(", ")})` : ""}`);
+  L.push(`- Other third-party packages (non-UI): ${thirdOther.length}`);
+  L.push(`- Icons: ${iconsUses.uses} Phosphor icon usages in ${iconsUses.files.size} files`, "");
+  L.push("## invin-uix components in use", "");
+  if (!uix.size) L.push("None found.", "");
+  else {
+    L.push("| Entry point | Components | Usages | Files |", "|---|---|---:|---:|");
+    for (const [spec, a] of [...uix.entries()].sort((x, y) => y[1].uses - x[1].uses)) L.push(`| \`${spec}\` | ${[...a.names].join(", ") || "-"} | ${a.uses} | ${a.files.size} |`);
+    L.push("");
+  }
+  L.push("## Third-party UI libraries", "");
+  if (!thirdUi.length) L.push("None. \u2705", "");
+  else {
+    L.push("| Package | Version | Usages | Files | Kind | Replace with |", "|---|---|---:|---:|---|---|");
+    for (const [name, a] of thirdUi.sort((x, y) => y[1].uses - x[1].uses)) {
+      const lib = UI_LIBS.find((l) => l.re.test(name));
+      L.push(`| \`${name}\` | ${declared[name] ?? "not in package.json"} | ${a.uses} | ${a.files.size} | ${lib?.kind ?? "UI component"} | ${lib?.hint ?? "Check whether invin-uix has an equivalent."} |`);
+    }
+    L.push("");
+    if (o.detail === "full") {
+      for (const [name, a] of thirdUi) L.push(`- \`${name}\` used in: ${[...a.files].slice(0, 12).join(", ")}${a.files.size > 12 ? ` (+${a.files.size - 12} more)` : ""}`);
+      L.push("");
+    }
+  }
+  L.push(`## Other third-party packages (${thirdOther.length}, non-UI)`, "");
+  if (!thirdOther.length) L.push("None.", "");
+  else L.push(thirdOther.sort((x, y) => y[1].files.size - x[1].files.size).map(([n, a]) => `\`${n}\` (${a.files.size})`).join(", "), "");
+  if (avail) {
+    const dupes = [];
+    for (const f of localComponentFiles) {
+      const stem = kebab(basename(f).replace(/\.(tsx|jsx)$/, ""));
+      const match = avail.find((a) => a === stem || a.endsWith(`/${stem}`));
+      if (match) dupes.push(`\`${rel(root, f)}\` \u2194 \`invin-uix/ui/${match}\``);
+    }
+    L.push("## Possible duplicates of invin-uix components", "");
+    L.push(dupes.length ? dupes.map((d) => `- ${d}`).join("\n") : "None found. \u2705", "");
+    const unused = avail.filter((a) => !usedSubpaths.has(a));
+    if (o.detail === "full") L.push(`## invin-uix components available but unused (${unused.length}/${avail.length})`, "", unused.map((u) => `\`${u}\``).join(", ") || "None.", "");
+    else L.push(`invin-uix offers ${avail.length} components; ${usedSubpaths.size} are used here. Run with detail="full" to list the unused ones.`, "");
+  } else if (declared["invin-uix"]) {
+    L.push("_invin-uix is declared but not installed in node_modules, so duplicate detection and the unused-component list were skipped. Run `npm install`._", "");
+  }
+  L.push("## Next steps", "");
+  const steps = [];
+  if (!declared["invin-uix"]) steps.push("Install invin-uix and Tailwind v4, then import `./uix.css` before `globals.css`.");
+  if (thirdUi.length) steps.push(`Replace the ${thirdUi.length} third-party UI package(s) above, biggest usage first.`);
+  if (thirdUi.some(([n]) => UI_LIBS.find((l) => l.re.test(n))?.kind === "Icons")) steps.push("Swap non-Phosphor icon packages for @phosphor-icons/react (Law 11).");
+  if (total > 0 && uixUses / total < 0.5) steps.push("Less than half of your component usages come from invin-uix. Prioritise charts, tables, KPI cards and badges.");
+  steps.push("Run `review_invinsense_ui` on changed files, then `npm run build`.");
+  steps.forEach((s, i) => L.push(`${i + 1}. ${s}`));
+  return L.join("\n");
+}
+
+// src/score.ts
+import { existsSync as existsSync4, readFileSync as readFileSync3 } from "node:fs";
+import { join as join4, resolve as resolve2 } from "node:path";
+var WEIGHTS = { violations: 50, structure: 30, components: 20, errorCost: 3, warningCost: 1, zeroAtDensity: 30, adoptionTarget: 0.25, minLines: 500 };
+var round1 = (n) => Math.round(n * 10) / 10;
+function gradeFor(total) {
+  if (total >= 90) return { grade: "A", verdict: "Compliant. Ready for review." };
+  if (total >= 80) return { grade: "B", verdict: "Close. Fix the listed items." };
+  if (total >= 70) return { grade: "C", verdict: "Partly compliant. Real gaps remain." };
+  if (total >= 60) return { grade: "D", verdict: "Weak. Significant rework needed." };
+  return { grade: "F", verdict: "Not compliant. Start with the biggest wins below." };
+}
+var violationPoints = (weighted, lines) => {
+  const kloc = Math.max(lines, WEIGHTS.minLines) / 1e3;
+  return WEIGHTS.violations * Math.max(0, 1 - weighted / kloc / WEIGHTS.zeroAtDensity);
+};
+function computeScore(i) {
+  const errors = i.findings.filter((f) => f.severity === "error");
+  const warnings = i.findings.filter((f) => f.severity === "warning");
+  const weighted = errors.length * WEIGHTS.errorCost + warnings.length * WEIGHTS.warningCost;
+  const vPts = violationPoints(weighted, i.lines);
+  const vFiles = new Set(i.findings.filter((f) => f.severity !== "info").map((f) => f.file)).size;
+  const density = weighted / (Math.max(i.lines, WEIGHTS.minLines) / 1e3);
+  const open = i.gaps.filter((g) => !g.present);
+  const per = WEIGHTS.structure / Math.max(1, i.gaps.length);
+  const sPts = per * (i.gaps.length - open.length);
+  const c = i.components;
+  const total = c.uixUses + c.localUses + c.thirdUiUses;
+  const thirdShare = total === 0 ? 0 : c.thirdUiUses / total;
+  const uixShare = total === 0 ? 0 : c.uixUses / total;
+  const noThird = WEIGHTS.components / 2 * (1 - thirdShare);
+  const adopt = WEIGHTS.components / 2 * Math.min(1, uixShare / WEIGHTS.adoptionTarget);
+  const cPts = noThird + adopt;
+  const categories2 = [
+    {
+      name: "Guide violations",
+      score: round1(vPts),
+      max: WEIGHTS.violations,
+      detail: i.findings.length === 0 ? "No violations found" : `${errors.length} error(s), ${warnings.length} warning(s) in ${vFiles} file(s), ${density.toFixed(1)} weighted per 1,000 lines`
+    },
+    {
+      name: "Structural gaps",
+      score: round1(sPts),
+      max: WEIGHTS.structure,
+      detail: open.length === 0 ? `All ${i.gaps.length} checklist items in place` : `${i.gaps.length - open.length} of ${i.gaps.length} in place. Missing: ${open.map((g) => g.id).join(", ")}`
+    },
+    {
+      name: "Component adoption",
+      score: round1(cPts),
+      max: WEIGHTS.components,
+      detail: `${Math.round(uixShare * 100)}% invin-uix, ${Math.round(thirdShare * 100)}% third-party UI libraries (${c.thirdUiPackages} package(s))${c.invinUixDeclared ? "" : ", invin-uix not installed"}`
+    }
+  ];
+  const totalScore = Math.round(vPts + sPts + cPts);
+  const wins = [];
+  const byRule = /* @__PURE__ */ new Map();
+  for (const f of i.findings) {
+    if (f.severity === "info") continue;
+    const r = byRule.get(f.rule) ?? { sev: f.severity, n: 0 };
+    r.n++;
+    byRule.set(f.rule, r);
+  }
+  for (const [rule, r] of byRule) {
+    const w = r.n * (r.sev === "error" ? WEIGHTS.errorCost : WEIGHTS.warningCost);
+    const gain = violationPoints(weighted - w, i.lines) - vPts;
+    if (gain >= 0.5) wins.push({ pts: gain, text: `Fix \`${rule}\` (${r.n}x, ${r.sev}): +${Math.round(gain)} pts` });
+  }
+  for (const g of open) wins.push({ pts: per, text: `Add: ${g.title}: +${Math.round(per)} pts` });
+  if (uixShare < WEIGHTS.adoptionTarget && total > 0) {
+    const gain = WEIGHTS.components / 2 * (Math.min(1, WEIGHTS.adoptionTarget / WEIGHTS.adoptionTarget) - Math.min(1, uixShare / WEIGHTS.adoptionTarget));
+    if (gain >= 1) wins.push({ pts: gain, text: `Use invin-uix for charts, tables, KPI cards and badges (reach ${Math.round(WEIGHTS.adoptionTarget * 100)}% of component usages): up to +${Math.round(gain)} pts` });
+  }
+  if (c.thirdUiUses > 0) {
+    const gain = WEIGHTS.components / 2 * thirdShare;
+    if (gain >= 1) wins.push({ pts: gain, text: `Replace third-party UI libraries (run audit-components): up to +${Math.round(gain)} pts` });
+  }
+  wins.sort((a, b) => b.pts - a.pts);
+  return { total: totalScore, ...gradeFor(totalScore), categories: categories2, wins: wins.slice(0, 5).map((w) => w.text) };
+}
+function formatScore(s, opts = {}) {
+  const L = [];
+  const delta = opts.before ? ` (was ${opts.before.total}/100, ${opts.before.grade})` : "";
+  L.push(`## ${opts.title ?? "Invinsense compliance score"}: ${s.total}/100, grade ${s.grade}${delta}`);
+  L.push(`_${s.verdict}_`, "");
+  L.push("| Category | Score | Detail |", "|---|---:|---|");
+  for (const c of s.categories) L.push(`| ${c.name} | ${c.score}/${c.max} | ${c.detail} |`);
+  if (s.wins.length) {
+    L.push("", "Biggest wins:");
+    s.wins.forEach((w, i) => L.push(`${i + 1}. ${w}`));
+  }
+  L.push("", "_Internal score for tracking progress, not part of the Module UI Guide. Violations 50, structure 30, components 20._");
+  return L.join("\n");
+}
+function componentStats(c) {
+  const sum = (it) => [...it].reduce((n, a) => n + a.uses, 0);
+  const thirdUi = [...c.third.values()].filter((a) => a.uiLike);
+  return {
+    uixUses: sum(c.uix.values()),
+    localUses: c.local.uses,
+    thirdUiUses: sum(thirdUi),
+    thirdUiPackages: thirdUi.length,
+    invinUixDeclared: Boolean(c.declared["invin-uix"])
+  };
+}
+function scoreProject(path, maxFiles = 1500) {
+  const root = resolve2(path);
+  if (!existsSync4(root)) throw new Error(`Path does not exist: ${root}`);
+  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const findings = [];
+  let lines = 0;
+  const texts = [];
+  for (const f of walked.files) {
+    let t;
+    try {
+      t = readFileSync3(f, "utf8");
+    } catch {
+      continue;
+    }
+    lines += t.split("\n").length;
+    texts.push(t);
+    for (const x of reviewInvinsense(t)) findings.push({ rule: x.rule, severity: x.severity, file: rel(root, f), line: x.line });
+  }
+  let deps = [];
+  try {
+    const pj = JSON.parse(readFileSync3(join4(root, "package.json"), "utf8"));
+    deps = Object.keys({ ...pj.dependencies, ...pj.devDependencies });
+  } catch {
+  }
+  const gaps = structuralGaps(texts.join("\n"), deps);
+  const components = componentStats(collectComponents(root, maxFiles));
+  const input = { findings, lines, filesScanned: walked.files.length, gaps, components };
+  const score = computeScore(input);
+  const text2 = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, "", formatScore(score)].join("\n");
+  return { score, input, text: text2 };
+}
+
+// src/convert.ts
 var ALL_FIXES = ["tokens", "theme-attribute", "accent-hex", "color-map", "transition-all", "easing", "font-size-floor", "font-family", "reduced-motion"];
 var TOKENS_REL = {
   nextjs: "src/styles/invinsense-tokens.css",
@@ -23115,17 +23488,17 @@ var TOKENS_REL = {
 };
 var readJson = (p) => {
   try {
-    return JSON.parse(readFileSync2(p, "utf8"));
+    return JSON.parse(readFileSync4(p, "utf8"));
   } catch {
     return null;
   }
 };
 function detectStack(root) {
-  const pkg = readJson(join3(root, "package.json"));
+  const pkg = readJson(join5(root, "package.json"));
   const deps = pkg ? Object.keys({ ...pkg.dependencies ?? {}, ...pkg.devDependencies ?? {} }) : [];
   if (deps.includes("next")) return { stack: "nextjs", deps };
   if (deps.includes("react") || deps.includes("vue") || deps.includes("svelte")) return { stack: "react", deps };
-  if (existsSync3(join3(root, "index.html"))) return { stack: "static", deps };
+  if (existsSync5(join5(root, "index.html"))) return { stack: "static", deps };
   return { stack: "unknown", deps };
 }
 var lineRe = {
@@ -23212,8 +23585,8 @@ function relImport(fromFile, toFile) {
   return r;
 }
 function convertProject(o) {
-  const root = resolve2(o.path);
-  if (!existsSync3(root) || !statSync3(root).isDirectory()) throw new Error(`path is not a directory: ${root}`);
+  const root = resolve3(o.path);
+  if (!existsSync5(root) || !statSync3(root).isDirectory()) throw new Error(`path is not a directory: ${root}`);
   const fam = families.find((f) => f.id === o.family);
   if (!fam) throw new Error(`Unknown family "${o.family}"`);
   const { stack, deps } = detectStack(root);
@@ -23225,16 +23598,16 @@ function convertProject(o) {
     if (g.isRepo && g.dirty && !o.force) throw new Error("The git working tree has uncommitted changes. Commit or stash them first (so the conversion is one reviewable diff), or pass force=true.");
   }
   const tokensRel = TOKENS_REL[stack];
-  const tokensAbs = join3(root, tokensRel);
+  const tokensAbs = join5(root, tokensRel);
   const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-  const backupRoot = join3(root, ".invinsense-backup", stamp);
+  const backupRoot = join5(root, ".invinsense-backup", stamp);
   const changes = [];
   const fileTexts = /* @__PURE__ */ new Map();
   const newTexts = /* @__PURE__ */ new Map();
   const accentHex = fam.primary;
   for (const file of walked.files) {
     if (isTokensFile(file)) continue;
-    const text3 = readFileSync2(file, "utf8");
+    const text3 = readFileSync4(file, "utf8");
     fileTexts.set(file, text3);
     if (o.mode !== "apply") continue;
     const lines = text3.split("\n");
@@ -23257,7 +23630,7 @@ function convertProject(o) {
   }
   const structural = [];
   const extraWrites = /* @__PURE__ */ new Map();
-  if (o.mode === "apply" && fixes.has("tokens") && !existsSync3(tokensAbs)) {
+  if (o.mode === "apply" && fixes.has("tokens") && !existsSync5(tokensAbs)) {
     const hasTokens = [...fileTexts.values()].some((t) => /--background\s*:/.test(t) && /--accent\s*:/.test(t));
     if (!hasTokens) {
       const css = `${tokensCss(o.family, { reducedMotion: false })}
@@ -23267,7 +23640,7 @@ function convertProject(o) {
       extraWrites.set(tokensAbs, css);
       structural.push(`Created ${tokensRel} (family ${fam.name}, dark + light OKLCH tokens).`);
       const wire = (file, edit, label) => {
-        const cur = newTexts.get(file) ?? fileTexts.get(file) ?? (existsSync3(file) ? readFileSync2(file, "utf8") : null);
+        const cur = newTexts.get(file) ?? fileTexts.get(file) ?? (existsSync5(file) ? readFileSync4(file, "utf8") : null);
         if (cur === null) return;
         const edited = edit(cur);
         if (edited && edited !== cur) {
@@ -23284,8 +23657,8 @@ function convertProject(o) {
         }
       }
       if (stack === "nextjs" || stack === "react") {
-        const entries = ["src/app/layout.tsx", "app/layout.tsx", "src/app/layout.jsx", "app/layout.jsx", "src/main.tsx", "src/main.jsx", "src/index.tsx", "src/index.jsx", "pages/_app.tsx", "src/pages/_app.tsx"].map((e) => join3(root, e));
-        const entry = entries.find((e) => existsSync3(e));
+        const entries = ["src/app/layout.tsx", "app/layout.tsx", "src/app/layout.jsx", "app/layout.jsx", "src/main.tsx", "src/main.jsx", "src/index.tsx", "src/index.jsx", "pages/_app.tsx", "src/pages/_app.tsx"].map((e) => join5(root, e));
+        const entry = entries.find((e) => existsSync5(e));
         if (entry) {
           const spec = relImport(entry, tokensAbs);
           wire(entry, (t) => t.includes("invinsense-tokens.css") ? null : `import "${spec}";
@@ -23315,9 +23688,9 @@ ${t}`, `Imported tokens in ${rel(root, entry)} (first import, so product CSS can
     for (const [file, text3] of newTexts) {
       const orig = fileTexts.get(file);
       if (orig === text3) continue;
-      const bak = join3(backupRoot, relative2(root, file));
+      const bak = join5(backupRoot, relative2(root, file));
       mkdirSync2(dirname2(bak), { recursive: true });
-      if (existsSync3(file)) copyFileSync(file, bak);
+      if (existsSync5(file)) copyFileSync(file, bak);
       writeFileSync2(file, text3, "utf8");
       wrote = true;
     }
@@ -23333,20 +23706,19 @@ ${t}`, `Imported tokens in ${rel(root, entry)} (first import, so product CSS can
     for (const f of reviewInvinsense(text3)) findings.push({ file: rel(root, file), f });
   }
   const all = [...fileTexts.entries()].map(([f, t]) => newTexts.get(f) ?? t).join("\n") + [...extraWrites.values()].join("\n");
-  const gap = (id, title, present, how, practiceId) => ({ id, title, present, how, practiceId });
-  const gaps = [
-    gap("tokens", "Shared OKLCH token set (section 05)", /--background\s*:/.test(all) && /--accent\s*:/.test(all), "Adopt the token block verbatim; set --accent to the family pair.", "invinsense-tokens"),
-    gap("theme", "Theme via html[data-theme], restored before first paint", /data-theme/.test(all), "Add the attribute, a topbar toggle and a pre-paint restore script.", "invinsense-theme"),
-    gap("fonts", "Geist and Geist Mono", /geist/i.test(all) || deps.some((d) => /geist/i.test(d)), "Self-host Geist (next/font with the geist package in Next.js).", "invinsense-typography"),
-    gap("icons", "Phosphor Bold icons", /phosphor/i.test(all) || deps.some((d) => /phosphor/i.test(d)), 'Replace other icon sets with @phosphor-icons/react (weight="bold").', "invinsense-icons"),
-    gap("shell", "One shell: 262px sidebar, 58px topbar, fixed control order", /sidebar-w|262px/.test(all) && /topbar/i.test(all), "Rebuild the layout on the shared shell (scaffold_invinsense_project shows the reference).", "invinsense-principles"),
-    gap("nav-links", "Navigation is links with aria-current", /aria-current/.test(all), "Use <a href> / next/link with aria-current='page' derived from the route.", "invinsense-navigation"),
-    gap("states", "Four states (loading, empty, error, partial)", /skeleton/i.test(all) && /empty/i.test(all) && /correlation/i.test(all), "Add skeleton, empty (with next action), error (correlation ID + retry) and partial states to every fetching view.", "invinsense-four-states"),
-    gap("tour", "Guided tour (nextstepjs 2.2.0)", /nextstepjs|tour/i.test(all) || deps.includes("nextstepjs"), "Add a specific, replayable tour that auto-starts once.", "invinsense-tour"),
-    gap("reduced-motion", "prefers-reduced-motion block", /prefers-reduced-motion/.test(all), "Add the block last in the stylesheet.", "invinsense-motion-a11y"),
-    gap("charts", "reaviz for charts", !deps.some((d) => /recharts|chart\.js|apexcharts|highcharts|victory|nivo/.test(d)), "Move charts to reaviz; keep recharts only where it already works.", "invinsense-charts")
-  ];
+  const gaps = structuralGaps(all, deps);
   const gapsOpen = gaps.filter((g) => !g.present);
+  const comps = componentStats(collectComponents(root, o.maxFiles));
+  const toScoreFindings = (texts) => {
+    const out = [];
+    for (const [file, t] of texts) for (const f of reviewInvinsense(t)) out.push({ rule: f.rule, severity: f.severity, file: rel(root, file), line: f.line });
+    return out;
+  };
+  const lineCount = (texts) => [...texts].reduce((n, t) => n + t.split("\n").length, 0);
+  const afterTexts = new Map([...fileTexts].map(([f, t]) => [f, newTexts.get(f) ?? t]));
+  const beforeAll = [...fileTexts.values()].join("\n");
+  const scoreBefore = computeScore({ findings: toScoreFindings(fileTexts), lines: lineCount(fileTexts.values()), filesScanned: fileTexts.size, gaps: structuralGaps(beforeAll, deps), components: comps });
+  const scoreAfter = o.mode === "apply" ? computeScore({ findings: toScoreFindings(afterTexts), lines: lineCount(afterTexts.values()), filesScanned: afterTexts.size, gaps, components: comps }) : null;
   const byFix = /* @__PURE__ */ new Map();
   for (const c of changes) byFix.set(c.fix, (byFix.get(c.fix) ?? 0) + 1);
   const filesChanged = new Set(changes.map((c) => c.file)).size + [...extraWrites.keys()].length;
@@ -23365,6 +23737,8 @@ ${t}`, `Imported tokens in ${rel(root, entry)} (first import, so product CSS can
   L.push(`Project: ${root}`);
   L.push(`Stack: ${stack}${deps.length ? ` (${deps.filter((d) => /^(next|react|vue|svelte|vite|tailwindcss)$/.test(d)).join(", ")})` : ""}   Family: ${fam.name}   Files scanned: ${walked.files.length}${walked.truncated ? " (truncated at maxFiles)" : ""}${walked.skipped ? `, ${walked.skipped} oversized skipped` : ""}`);
   L.push("");
+  if (scoreAfter) L.push(formatScore(scoreAfter, { title: o.dryRun ? "Projected compliance score after fixes" : "Compliance score after fixes", before: scoreBefore }), "");
+  else L.push(formatScore(scoreBefore, { title: "Compliance score" }), "");
   if (o.mode === "apply") {
     L.push(`## Automatic fixes ${willWrite ? "applied" : "that would be applied"}: ${changes.length} change(s) in ${filesChanged} file(s)`);
     if (!changes.length && !structural.length) L.push("- Nothing mechanical to change.");
@@ -23399,14 +23773,14 @@ ${t}`, `Imported tokens in ${rel(root, entry)} (first import, so product CSS can
   L.push("4. Re-run this tool in audit mode until errors are zero, then walk invinsense_new_module_checklist and run `npm run slop` in the launcher repo.");
   const text2 = L.join("\n");
   if (o.writeReport && willWrite) {
-    writeFileSync2(join3(root, "INVINSENSE_MIGRATION.md"), text2 + "\n", "utf8");
+    writeFileSync2(join5(root, "INVINSENSE_MIGRATION.md"), text2 + "\n", "utf8");
   }
-  return { text: text2, changes: changes.length, filesChanged, remainingErrors, wrote };
+  return { text: text2, score: (scoreAfter ?? scoreBefore).total, changes: changes.length, filesChanged, remainingErrors, wrote };
 }
 
 // src/page.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "node:fs";
-import { dirname as dirname3, isAbsolute as isAbsolute2, join as join4 } from "node:path";
+import { existsSync as existsSync6, mkdirSync as mkdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
+import { dirname as dirname3, isAbsolute as isAbsolute2, join as join6 } from "node:path";
 var SEGMENT = /^(\[[a-z][a-zA-Z0-9]*\]|[a-z0-9]+(-[a-z0-9]+)*)$/;
 var RESERVED = /* @__PURE__ */ new Set(["login", "api", "_next", "assets"]);
 var KIND_ICONS = {
@@ -23915,14 +24289,14 @@ export default function ${P2}Error({ error, reset }: { error: Error & { digest?:
 }
 function addPage(o) {
   if (!isAbsolute2(o.projectDir)) throw new Error("projectDir must be an absolute path");
-  if (!existsSync4(join4(o.projectDir, "package.json"))) throw new Error(`No package.json in ${o.projectDir}. Pass the project root.`);
-  const pkg = JSON.parse(readFileSync3(join4(o.projectDir, "package.json"), "utf8"));
+  if (!existsSync6(join6(o.projectDir, "package.json"))) throw new Error(`No package.json in ${o.projectDir}. Pass the project root.`);
+  const pkg = JSON.parse(readFileSync5(join6(o.projectDir, "package.json"), "utf8"));
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   if (!deps["next"]) throw new Error("This is not a Next.js project (no `next` dependency). Use the static-module template pages instead.");
   const hasUix = Boolean(deps["invin-uix"]);
-  const srcApp = join4(o.projectDir, "src", "app");
-  const plainApp = join4(o.projectDir, "app");
-  const appRoot = existsSync4(join4(srcApp, "(app)")) ? srcApp : existsSync4(join4(plainApp, "(app)")) ? plainApp : null;
+  const srcApp = join6(o.projectDir, "src", "app");
+  const plainApp = join6(o.projectDir, "app");
+  const appRoot = existsSync6(join6(srcApp, "(app)")) ? srcApp : existsSync6(join6(plainApp, "(app)")) ? plainApp : null;
   if (!appRoot) throw new Error("Could not find the `(app)` route group (src/app/(app)). Is this an Invinsense Next.js project?");
   const segs = o.route.trim().replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
   if (!segs.length || segs.length > 4) throw new Error("route needs 1 to 4 segments, e.g. `reports` or `settings/users`");
@@ -23936,20 +24310,20 @@ function addPage(o) {
   const staticSegs = segs.filter((s) => !s.startsWith("["));
   const title = o.title?.trim() || words(staticSegs[staticSegs.length - 1] ?? "page");
   const files = o.kind === "list" ? listFiles(P2, title, hasUix) : o.kind === "dashboard" ? dashboardFiles(P2, title, hasUix) : o.kind === "detail" ? detailFiles(P2, title, param) : o.kind === "form" ? formFiles(P2, title) : blankFiles(P2, title);
-  const dir = join4(appRoot, "(app)", ...segs);
-  const planned = Object.entries(files).map(([name, content]) => ({ path: join4(dir, name), name, content }));
-  const clashes = planned.filter((f) => existsSync4(f.path));
+  const dir = join6(appRoot, "(app)", ...segs);
+  const planned = Object.entries(files).map(([name, content]) => ({ path: join6(dir, name), name, content }));
+  const clashes = planned.filter((f) => existsSync6(f.path));
   if (clashes.length && !o.overwrite) throw new Error(`These files already exist (pass overwrite=true to replace):
 ${clashes.map((c) => "  " + c.path).join("\n")}`);
-  const navPath = join4(dirname3(appRoot), "lib", "nav.ts");
+  const navPath = join6(dirname3(appRoot), "lib", "nav.ts");
   const navId = staticSegs.join("-");
   const lines = [];
   let navSrc = null;
   let navOut = null;
   if (o.addToNav && !isDynamic) {
-    if (!existsSync4(navPath)) lines.push("Nav: src/lib/nav.ts not found, so the sidebar link was not added.");
+    if (!existsSync6(navPath)) lines.push("Nav: src/lib/nav.ts not found, so the sidebar link was not added.");
     else {
-      navSrc = readFileSync3(navPath, "utf8");
+      navSrc = readFileSync5(navPath, "utf8");
       if (new RegExp(`id:\\s*"${navId}"`).test(navSrc)) lines.push(`Nav: an item with id "${navId}" already exists, left unchanged.`);
       else {
         const icons = navIcons(navSrc);
@@ -23997,216 +24371,263 @@ ${clashes.map((c) => "  " + c.path).join("\n")}`);
   return { text: header.join("\n"), written: true };
 }
 
-// src/audit.ts
-import { existsSync as existsSync5, readFileSync as readFileSync4 } from "node:fs";
-import { builtinModules } from "node:module";
-import { basename, join as join5 } from "node:path";
-var BUILTINS = new Set(builtinModules.map((m) => m.replace(/^node:/, "")));
-var SCRIPT_EXT = /\.(tsx?|jsx?|mjs|cjs)$/;
-var UI_LIBS = [
-  { re: /^(@mui\/|@emotion\/|@chakra-ui\/|antd$|@ant-design\/|@mantine\/|@nextui-org\/|@heroui\/|react-bootstrap|bootstrap$|reactstrap|primereact|semantic-ui|@blueprintjs\/|rsuite|@fluentui\/|@headlessui\/|@radix-ui\/|@tremor\/|daisyui|flowbite)/, kind: "UI kit", hint: "Replace with invin-uix components (Button, Badge, Card, Avatar, Alert, Switch, Separator, Skeleton, DataTable, KpiCard\u2026)." },
-  { re: /^(recharts|chart\.js|react-chartjs-2|apexcharts|react-apexcharts|victory|@nivo\/|echarts|echarts-for-react|highcharts|@visx\/|react-vis|reaviz)/, kind: "Charts", hint: "Use invin-uix/ui/chart (AreaChart, BarChart, DonutChart, GaugeChart). The guide mandates reaviz-based charts via the library." },
-  { re: /^(@tanstack\/react-table|react-table|ag-grid|@ag-grid|@mui\/x-data-grid|react-data-grid|material-react-table)/, kind: "Data table", hint: "Use invin-uix/ui/data-table." },
-  { re: /^(react-icons|lucide-react|@heroicons\/|@fortawesome\/|@tabler\/|@mui\/icons|feather-icons|react-feather|@iconify)/, kind: "Icons", hint: "Law 11: Phosphor Bold only. Use @phosphor-icons/react." },
-  { re: /^(react-joyride|react-shepherd|shepherd\.js|driver\.js|intro\.js|react-intro\.js|reactour|@reactour\/)/, kind: "Tour", hint: "Guide section 16: use nextstepjs 2.2.0." },
-  { re: /^(react-toastify|react-hot-toast|sonner|notistack|react-simple-toasts)/, kind: "Toasts", hint: "Use the invin-uix toast/alert pattern (guide section 13)." },
-  { re: /^(react-datepicker|react-day-picker|@mui\/x-date-pickers|react-calendar|flatpickr)/, kind: "Date picker", hint: "Use invin-uix/ui/calendar if available." },
-  { re: /^(react-select|react-dropdown|downshift|cmdk)/, kind: "Select / combobox", hint: "Use the invin-uix select/combobox primitives if available." },
-  { re: /^(react-modal|sweetalert|@sweetalert2\/|react-responsive-modal)/, kind: "Modal", hint: "Use invin-uix dialog/modal primitives if available." },
-  { re: /^(styled-components|@stitches\/|@vanilla-extract\/|linaria|twin\.macro)/, kind: "CSS-in-JS", hint: "Use module tokens (CSS variables) and the shell classes; no CSS-in-JS runtime." }
-];
-var pkgName = (spec) => spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
-function classify(spec) {
-  if (spec.startsWith(".") || spec.startsWith("@/") || spec.startsWith("~/") || spec.startsWith("#") || spec.startsWith("src/")) return "local";
-  const pkg = pkgName(spec);
-  if (spec.startsWith("node:") || BUILTINS.has(pkg)) return "node";
-  if (pkg === "invin-uix") return "invin-uix";
-  if (pkg === "react" || pkg === "react-dom" || pkg === "next" || pkg === "server-only" || pkg === "client-only") return "framework";
-  if (pkg.startsWith("@phosphor-icons/")) return "icons";
-  if (pkg === "geist") return "fonts";
-  if (pkg === "nextstepjs") return "tour";
-  return "third-party";
-}
-function namesFromClause(clause) {
-  const names = [];
-  const trimmed = clause.trim();
-  const brace = trimmed.match(/\{([\s\S]*)\}/);
-  const head = trimmed.replace(/\{[\s\S]*\}/, "").replace(/,/g, " ").trim();
-  if (head && !head.startsWith("*")) names.push(head.split(/\s+/)[0]);
-  if (head.startsWith("*")) {
-    const ns = head.match(/as\s+(\w+)/);
-    if (ns?.[1]) names.push(ns[1]);
-  }
-  if (brace?.[1]) {
-    for (const part of brace[1].split(",")) {
-      const p = part.trim();
-      if (!p || p.startsWith("type ")) continue;
-      const alias = p.split(/\s+as\s+/);
-      names.push((alias[1] ?? alias[0] ?? "").trim());
-    }
-  }
-  return names.filter((n) => /^[A-Za-z_$][\w$]*$/.test(n));
-}
-function parseImports(src, file) {
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  const out = [];
-  const add = (spec, names) => out.push({ spec, pkg: classify(spec) === "local" ? spec : pkgName(spec), origin: classify(spec), names, file });
-  for (const m of code.matchAll(/\bimport\s+(type\s+)?([\w*$\s{},]+?)\s+from\s*["']([^"']+)["']/g)) {
-    if (m[1]) continue;
-    add(m[3], namesFromClause(m[2]));
-  }
-  for (const m of code.matchAll(/\bimport\s*["']([^"']+)["']/g)) add(m[1], []);
-  for (const m of code.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)) add(m[1], []);
-  for (const m of code.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/g)) add(m[1], []);
-  return out;
-}
-function jsxUses(src, name) {
-  if (!/^[A-Z]/.test(name)) return 0;
-  const esc2 = name.replace(/\$/g, "\\$");
-  return (src.match(new RegExp(`<${esc2}(?=[\\s/>.<])`, "g")) ?? []).length;
-}
-function availableUix(root) {
-  const pj = join5(root, "node_modules", "invin-uix", "package.json");
-  if (!existsSync5(pj)) return null;
+// src/insight.ts
+import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync6, readdirSync as readdirSync4, writeFileSync as writeFileSync4 } from "node:fs";
+import { join as join7, resolve as resolve4 } from "node:path";
+var FIX_HINT = {
+  "hardcoded-hex": "Replace with a CSS variable. `convert` fixes most of these.",
+  "font-below-12": "Raise to 12px or more.",
+  "unapproved-font": "Use Geist / Geist Mono via var(--font-sans) / var(--font-mono).",
+  "non-phosphor-icons": 'Swap to @phosphor-icons/react, weight="bold".',
+  "chart-library": "Use invin-uix/ui/chart (run audit-components).",
+  "em-dash": "Use a period, comma or colon.",
+  "layout-animation": "Animate transform and opacity only.",
+  "missing-reduced-motion": "Add the prefers-reduced-motion block last in the stylesheet.",
+  "dark-prefix": "Remove dark: classes. Use tokens under html[data-theme].",
+  "outline-none": "Keep the 3px :focus-visible ring.",
+  "nav-as-button": "Use next/link with aria-current."
+};
+var read = (f) => {
   try {
-    const exp = JSON.parse(readFileSync4(pj, "utf8")).exports ?? {};
-    return Object.keys(exp).filter((k) => k.startsWith("./ui/")).map((k) => k.slice(5)).filter((k) => k !== "lib/utils");
+    return readFileSync6(f, "utf8");
   } catch {
-    return null;
+    return "";
   }
-}
-var kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
-var pct = (n, d) => d === 0 ? "0%" : `${Math.round(n / d * 100)}%`;
-function auditComponents(o) {
-  const root = o.path;
-  if (!existsSync5(root)) throw new Error(`Path does not exist: ${root}`);
-  const pkgPath = join5(root, "package.json");
-  const pkg = existsSync5(pkgPath) ? JSON.parse(readFileSync4(pkgPath, "utf8")) : {};
-  const declared = { ...pkg.devDependencies, ...pkg.dependencies };
-  const walked = walkSources(root, { maxFiles: o.maxFiles, maxBytes: 1e6 });
-  const files = walked.files.filter((f) => SCRIPT_EXT.test(f));
-  const mk = () => ({ imports: 0, files: /* @__PURE__ */ new Set(), uses: 0, names: /* @__PURE__ */ new Set() });
-  const uix = /* @__PURE__ */ new Map();
-  const third = /* @__PURE__ */ new Map();
-  const local = mk();
-  const frameworkUses = { n: 0 };
-  const iconsUses = mk();
-  const filesWithUix = /* @__PURE__ */ new Set();
-  const localComponentFiles = [];
-  for (const f of files) {
-    let src;
-    try {
-      src = readFileSync4(f, "utf8");
-    } catch {
-      continue;
+};
+var exists = (p) => existsSync7(p);
+var requireRoot = (path) => {
+  const root = resolve4(path);
+  if (!exists(root)) throw new Error(`Path does not exist: ${root}`);
+  return root;
+};
+var md = (rows) => rows.map((r) => `| ${r.join(" | ")} |`).join("\n");
+function hotspots(path, top = 10, maxFiles = 1500) {
+  const root = requireRoot(path);
+  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const rows = [];
+  const rules3 = /* @__PURE__ */ new Map();
+  let suppressed = 0;
+  let totalLines = 0;
+  for (const f of walked.files) {
+    const t = read(f);
+    const lines = t.split("\n").length;
+    totalLines += lines;
+    suppressed += (t.match(/invinsense-allow/g) ?? []).length;
+    const fs = reviewInvinsense(t);
+    if (!fs.length) continue;
+    const name = rel(root, f);
+    const row = { file: name, lines, e: 0, w: 0, i: 0 };
+    for (const x of fs) {
+      if (x.severity === "error") row.e++;
+      else if (x.severity === "warning") row.w++;
+      else row.i++;
+      const r = rules3.get(x.rule) ?? { sev: x.severity, n: 0, files: /* @__PURE__ */ new Set() };
+      r.n++;
+      r.files.add(name);
+      rules3.set(x.rule, r);
     }
-    const r = rel(root, f);
-    if (/(^|\/)components?\//i.test(r) && /\.(tsx|jsx)$/.test(f)) localComponentFiles.push(f);
-    for (const imp of parseImports(src, r)) {
-      const uses = imp.names.reduce((n, nm) => n + jsxUses(src, nm), 0);
-      if (imp.origin === "invin-uix") {
-        const a = uix.get(imp.spec) ?? mk();
-        a.imports++;
-        a.files.add(r);
-        a.uses += uses;
-        imp.names.forEach((n) => a.names.add(n));
-        uix.set(imp.spec, a);
-        filesWithUix.add(r);
-      } else if (imp.origin === "third-party") {
-        const a = third.get(imp.pkg) ?? { ...mk(), uiLike: UI_LIBS.some((l) => l.re.test(imp.pkg)) };
-        a.imports++;
-        a.files.add(r);
-        a.uses += uses;
-        if (uses > 0) a.uiLike = true;
-        imp.names.forEach((n) => a.names.add(n));
-        third.set(imp.pkg, a);
-      } else if (imp.origin === "local") {
-        if (uses > 0) {
-          local.imports++;
-          local.files.add(r);
-          local.uses += uses;
-          imp.names.filter((n) => jsxUses(src, n) > 0).forEach((n) => local.names.add(n));
-        }
-      } else if (imp.origin === "icons") {
-        iconsUses.imports++;
-        iconsUses.files.add(r);
-        iconsUses.uses += uses;
-      } else if (imp.origin === "framework") {
-        frameworkUses.n += uses;
+    rows.push(row);
+  }
+  const weight = (r) => r.e * WEIGHTS.errorCost + r.w * WEIGHTS.warningCost;
+  rows.sort((a, b) => weight(b) - weight(a) || b.e - a.e);
+  const total = rows.reduce((n, r) => n + weight(r), 0);
+  const L = [`# Hotspots: ${root.split("/").pop()}`, `Scanned ${walked.files.length} files, ${totalLines.toLocaleString("en-US")} lines. ${rows.length} file(s) have findings. ${suppressed} line(s) carry \`invinsense-allow\`.`, ""];
+  if (!rows.length) {
+    L.push("\u2705 No findings in any file.");
+    return L.join("\n");
+  }
+  L.push(`## Worst files (top ${Math.min(top, rows.length)} of ${rows.length})`, "", "| File | Errors | Warnings | Weighted | Share of total |", "|---|---:|---:|---:|---:|");
+  for (const r of rows.slice(0, top)) L.push(`| \`${r.file}\` | ${r.e} | ${r.w} | ${weight(r)} | ${Math.round(weight(r) / Math.max(1, total) * 100)}% |`);
+  const topShare = rows.slice(0, 3).reduce((n, r) => n + weight(r), 0);
+  L.push("", `The 3 worst files hold ${Math.round(topShare / Math.max(1, total) * 100)}% of all weighted findings. Fix them first.`);
+  L.push("", "## Findings by rule", "", "| Rule | Severity | Count | Files | How to fix |", "|---|---|---:|---:|---|");
+  [...rules3.entries()].sort((a, b) => b[1].n * (b[1].sev === "error" ? 3 : 1) - a[1].n * (a[1].sev === "error" ? 3 : 1)).slice(0, 15).forEach(([rule, r]) => L.push(`| \`${rule}\` | ${r.sev} | ${r.n} | ${r.files.size} | ${FIX_HINT[rule] ?? "Run `review` on the file for the rule text."} |`));
+  L.push("", "Next: run `review` on the worst file, or `convert` for mechanical fixes.");
+  return L.join("\n");
+}
+function routes(path, maxFiles = 1500) {
+  const root = requireRoot(path);
+  const appDir = [join7(root, "src", "app"), join7(root, "app")].find(exists);
+  if (!appDir) return `# Routes: ${root.split("/").pop()}
+
+No Next.js App Router folder found (looked for src/app and app). This command supports the App Router only.`;
+  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const all = walked.files.map(read).join("\n");
+  const imported = (file, src) => {
+    let extra = "";
+    for (const m of src.matchAll(/from\s+["'](@\/[^"']+|\.{1,2}\/[^"']+)["']/g)) {
+      const spec = m[1];
+      const base = spec.startsWith("@/") ? join7(root, exists(join7(root, "src")) ? "src" : "", spec.slice(2)) : resolve4(file, "..", spec);
+      for (const c of [".tsx", ".ts", ".jsx", ".js", "/index.tsx", "/index.ts"]) if (exists(base + c)) {
+        extra += "\n" + read(base + c);
+        break;
       }
     }
+    return extra;
+  };
+  const pages = [];
+  const apis = [];
+  const visit = (dir, segs) => {
+    let entries;
+    try {
+      entries = readdirSync4(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (IGNORE_DIRS.has(e.name) || e.name.startsWith("@") || e.name.startsWith("_")) continue;
+        const group = /^\(.*\)$/.test(e.name);
+        visit(join7(dir, e.name), group ? segs : [...segs, e.name]);
+      } else if (/^page\.(tsx|ts|jsx|js)$/.test(e.name)) pages.push({ route: "/" + segs.join("/"), dir, file: join7(dir, e.name) });
+      else if (/^route\.(ts|js)$/.test(e.name)) apis.push("/" + segs.join("/"));
+    }
+  };
+  visit(appDir, []);
+  pages.sort((a, b) => a.route.localeCompare(b.route));
+  const covered = (dir, base) => {
+    let d = dir;
+    for (; ; ) {
+      if (readdirSync4(d).some((n) => base.test(n))) return true;
+      if (d === appDir) return false;
+      const up = resolve4(d, "..");
+      if (up === d) return false;
+      d = up;
+    }
+  };
+  const mark = (b) => b ? "yes" : "**no**";
+  const L = [`# Routes: ${root.split("/").pop()}`, `${pages.length} page(s), ${apis.length} API route(s).`, ""];
+  if (!pages.length) return L.concat("No page files found.").join("\n");
+  const rows = [["Route", "Loading", "Error", "Empty state", "invin-uix", "In nav", "Client"]];
+  let noLoading = 0, noError = 0, noEmpty = 0, noNav = 0, dynamic = 0;
+  for (const p of pages) {
+    const own = read(p.file);
+    const src = own + imported(p.file, own);
+    if (/\bredirect\(/.test(own) && own.length < 600) {
+      rows.push([`\`${p.route}\``, "n/a", "n/a", "n/a", "0", "n/a", "redirect"]);
+      continue;
+    }
+    const loading = covered(p.dir, /^loading\.(tsx|ts|jsx|js)$/);
+    const error2 = covered(p.dir, /^error\.(tsx|ts|jsx|js)$/);
+    const isAuth = /^\/(login|signin|sign-in|register|signup|forgot|reset)/.test(p.route);
+    const isFetching = !isAuth && /\bawait\s|\bfetch\(|useSWR|useQuery/.test(own);
+    const showsList = !isAuth && !/\[.+\]/.test(p.route) && /DataTable|<table/.test(src);
+    const hasEmpty = /EmptyState|emptyState|No [a-z ]+ yet|rows\.length === 0|\.length === 0/i.test(src);
+    const uix = (src.match(/from\s+["']invin-uix\//g) ?? []).length;
+    const esc2 = p.route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const inNav = p.route === "/" || new RegExp("href\\s*[:=]\\s*\\{?\\s*[\"'`]" + esc2 + "[\"'`?#/]").test(all);
+    const isDyn = /\[.+\]/.test(p.route);
+    if (isDyn) dynamic++;
+    if (!loading && isFetching) noLoading++;
+    if (!error2 && isFetching) noError++;
+    if (showsList && !hasEmpty) noEmpty++;
+    if (!inNav && !isDyn && p.route !== "/login") noNav++;
+    rows.push([`\`${p.route}\``, loading || isFetching ? mark(loading) : "n/a", error2 || isFetching ? mark(error2) : "n/a", showsList ? mark(hasEmpty) : "n/a", String(uix), isDyn || p.route === "/login" ? "n/a" : mark(inNav), /^\s*["']use client["']/.test(own) ? "yes" : "no"]);
   }
-  const uixUses = [...uix.values()].reduce((n, a) => n + a.uses, 0);
-  const uixImports = [...uix.values()].reduce((n, a) => n + a.imports, 0);
-  const thirdUi = [...third.entries()].filter(([, a]) => a.uiLike);
-  const thirdOther = [...third.entries()].filter(([, a]) => !a.uiLike);
-  const thirdUiUses = thirdUi.reduce((n, [, a]) => n + a.uses, 0);
-  const total = uixUses + local.uses + thirdUiUses;
-  const avail = availableUix(root);
-  const usedSubpaths = new Set([...uix.keys()].map((k) => k.replace(/^invin-uix\/ui\//, "")));
-  const L = [];
-  L.push(`# UI component audit: ${basename(root)}`, "");
-  L.push(`Scanned ${files.length} source files${walked.truncated ? " (truncated, raise maxFiles for a full scan)" : ""}.`, "");
-  if (!declared["invin-uix"]) {
-    L.push("\u26A0\uFE0F `invin-uix` is NOT in package.json. Install it (`npm i invin-uix`) and add Tailwind v4 (`npm i -D tailwindcss @tailwindcss/postcss`). The scaffolds from `new-project` already include this setup.", "");
+  L.push(md(rows.slice(0, 1)), "|---|:-:|:-:|:-:|---:|:-:|:-:|", md(rows.slice(1)));
+  const issues = [];
+  if (noLoading) issues.push(`${noLoading} route(s) have no loading.tsx, so users get no skeleton.`);
+  if (noError) issues.push(`${noError} route(s) have no error.tsx, so failures show the framework default.`);
+  if (noEmpty) issues.push(`${noEmpty} data page(s) show no empty state when the list is empty.`);
+  if (noNav) issues.push(`${noNav} route(s) are not linked from the navigation.`);
+  const rootNf = [join7(appDir, "not-found.tsx"), join7(appDir, "not-found.jsx")].some(exists);
+  if (!rootNf) issues.push("No app/not-found.tsx. Add one that names the missing page and links home.");
+  L.push("");
+  if (issues.length) L.push("## To fix", ...issues.map((i) => `- ${i}`), "", "Use `new-page` for new routes. It creates the page, loading and error files together.");
+  else L.push("\u2705 Every route has loading, error and empty handling and is reachable from the navigation.");
+  if (apis.length) L.push("", `API routes: ${apis.map((a) => `\`${a}\``).join(", ")}`);
+  return L.join("\n");
+}
+function tokens(path, maxFiles = 1500) {
+  const root = requireRoot(path);
+  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const defined = /* @__PURE__ */ new Map();
+  const used = /* @__PURE__ */ new Map();
+  const withFallback = /* @__PURE__ */ new Set();
+  const hex = /* @__PURE__ */ new Map();
+  let hexTotal = 0;
+  let importsUixTokens = false;
+  for (const f of walked.files) {
+    const t = read(f).replace(/\/\*[\s\S]*?\*\//g, "");
+    if (/invin-uix\/tokens\.css/.test(t)) importsUixTokens = true;
+    const name = rel(root, f);
+    const isStyle = STYLE_EXT.has(f.slice(f.lastIndexOf(".")).toLowerCase());
+    if (isStyle) {
+      for (const m of t.matchAll(/(--[\w-]+)\s*:/g)) if (!defined.has(m[1])) defined.set(m[1], name);
+    }
+    for (const m of t.matchAll(/var\(\s*(--[\w-]+)\s*([,)])/g)) {
+      if (m[2] === ",") withFallback.add(m[1]);
+      const u = used.get(m[1]) ?? { n: 0, files: /* @__PURE__ */ new Set() };
+      u.n++;
+      u.files.add(name);
+      used.set(m[1], u);
+    }
+    for (const x of reviewInvinsense(t)) if (x.rule === "hardcoded-hex") {
+      hexTotal++;
+      hex.set(name, (hex.get(name) ?? 0) + 1);
+    }
   }
-  L.push("## Summary", "");
-  L.push("| Source | Component usages (JSX) | Share |", "|---|---:|---:|");
-  L.push(`| invin-uix | ${uixUses} | ${pct(uixUses, total)} |`);
-  L.push(`| Local components (this project) | ${local.uses} | ${pct(local.uses, total)} |`);
-  L.push(`| Third-party UI libraries | ${thirdUiUses} | ${pct(thirdUiUses, total)} |`);
-  L.push(`| Total | ${total} | 100% |`, "");
-  L.push(`- invin-uix: ${uix.size} entry points, ${uixImports} imports in ${filesWithUix.size} files`);
-  L.push(`- Third-party UI packages: ${thirdUi.length}${thirdUi.length ? ` (${thirdUi.map(([n]) => n).join(", ")})` : ""}`);
-  L.push(`- Other third-party packages (non-UI): ${thirdOther.length}`);
-  L.push(`- Icons: ${iconsUses.uses} Phosphor icon usages in ${iconsUses.files.size} files`, "");
-  L.push("## invin-uix components in use", "");
-  if (!uix.size) L.push("None found.", "");
+  const uixTokens = /* @__PURE__ */ new Set();
+  const uixCss = [join7(root, "node_modules", "invin-uix", "dist", "tokens.css"), join7(root, "node_modules", "invin-uix", "tokens.css")].find(exists);
+  if (uixCss) for (const m of read(uixCss).matchAll(/(--[\w-]+)\s*:/g)) uixTokens.add(m[1]);
+  const isProvided = (t) => uixTokens.has(t) || /^--(tw-|font-geist|radix|next)/.test(t);
+  const unverifiable = importsUixTokens && !uixCss;
+  const undef = unverifiable ? [] : [...used.entries()].filter(([t]) => !defined.has(t) && !isProvided(t) && !withFallback.has(t));
+  const unused = [...defined.keys()].filter((t) => !used.has(t) && !/^--(accent-|z-|radius-|sidebar-|topbar-|text-|font-)/.test(t) && !/^--[\w-]+-\d+$/.test(t));
+  const L = [`# Tokens: ${root.split("/").pop()}`, `${defined.size} token(s) defined in CSS, ${used.size} distinct token(s) used, ${hexTotal} hardcoded hex value(s) outside the accent definitions.`, ""];
+  L.push("## Most used", "", "| Token | Uses | Files |", "|---|---:|---:|");
+  [...used.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 12).forEach(([t, u]) => L.push(`| \`${t}\` | ${u.n} | ${u.files.size} |`));
+  L.push("", "## Hardcoded colours");
+  if (!hexTotal) L.push("", "\u2705 None.");
   else {
-    L.push("| Entry point | Components | Usages | Files |", "|---|---|---:|---:|");
-    for (const [spec, a] of [...uix.entries()].sort((x, y) => y[1].uses - x[1].uses)) L.push(`| \`${spec}\` | ${[...a.names].join(", ") || "-"} | ${a.uses} | ${a.files.size} |`);
-    L.push("");
+    L.push("", "| File | Hex values |", "|---|---:|");
+    [...hex.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).forEach(([f, n]) => L.push(`| \`${f}\` | ${n} |`));
+    L.push("", "Replace with CSS variables. `convert` rewrites most of these.");
   }
-  L.push("## Third-party UI libraries", "");
-  if (!thirdUi.length) L.push("None. \u2705", "");
+  L.push("", "## Used but not defined");
+  if (!undef.length) L.push("", unverifiable ? "Not checked: invin-uix is not installed, so tokens it provides cannot be verified. Run npm install and re-run." : "\u2705 None. Every var(--x) resolves.");
   else {
-    L.push("| Package | Version | Usages | Files | Kind | Replace with |", "|---|---|---:|---:|---|---|");
-    for (const [name, a] of thirdUi.sort((x, y) => y[1].uses - x[1].uses)) {
-      const lib = UI_LIBS.find((l) => l.re.test(name));
-      L.push(`| \`${name}\` | ${declared[name] ?? "not in package.json"} | ${a.uses} | ${a.files.size} | ${lib?.kind ?? "UI component"} | ${lib?.hint ?? "Check whether invin-uix has an equivalent."} |`);
-    }
-    L.push("");
-    if (o.detail === "full") {
-      for (const [name, a] of thirdUi) L.push(`- \`${name}\` used in: ${[...a.files].slice(0, 12).join(", ")}${a.files.size > 12 ? ` (+${a.files.size - 12} more)` : ""}`);
-      L.push("");
-    }
+    L.push("", "These resolve to nothing and silently fall back to the browser default:", "", "| Token | Uses | First seen in |", "|---|---:|---|");
+    undef.sort((a, b) => b[1].n - a[1].n).slice(0, 15).forEach(([t, u]) => L.push(`| \`${t}\` | ${u.n} | \`${[...u.files][0]}\` |`));
   }
-  L.push(`## Other third-party packages (${thirdOther.length}, non-UI)`, "");
-  if (!thirdOther.length) L.push("None.", "");
-  else L.push(thirdOther.sort((x, y) => y[1].files.size - x[1].files.size).map(([n, a]) => `\`${n}\` (${a.files.size})`).join(", "), "");
-  if (avail) {
-    const dupes = [];
-    for (const f of localComponentFiles) {
-      const stem = kebab(basename(f).replace(/\.(tsx|jsx)$/, ""));
-      const match = avail.find((a) => a === stem || a.endsWith(`/${stem}`));
-      if (match) dupes.push(`\`${rel(root, f)}\` \u2194 \`invin-uix/ui/${match}\``);
-    }
-    L.push("## Possible duplicates of invin-uix components", "");
-    L.push(dupes.length ? dupes.map((d) => `- ${d}`).join("\n") : "None found. \u2705", "");
-    const unused = avail.filter((a) => !usedSubpaths.has(a));
-    if (o.detail === "full") L.push(`## invin-uix components available but unused (${unused.length}/${avail.length})`, "", unused.map((u) => `\`${u}\``).join(", ") || "None.", "");
-    else L.push(`invin-uix offers ${avail.length} components; ${usedSubpaths.size} are used here. Run with detail="full" to list the unused ones.`, "");
-  } else if (declared["invin-uix"]) {
-    L.push("_invin-uix is declared but not installed in node_modules, so duplicate detection and the unused-component list were skipped. Run `npm install`._", "");
+  L.push("", "## Defined but never used");
+  if (!unused.length) L.push("", "\u2705 None.");
+  else L.push("", unused.slice(0, 20).map((t) => `\`${t}\``).join(", ") + (unused.length > 20 ? ` and ${unused.length - 20} more` : ""), "", "Safe to keep if invin-uix or later pages will use them.");
+  return L.join("\n");
+}
+function report(path, save, maxFiles = 1500) {
+  const root = requireRoot(path);
+  const { score, input } = scoreProject(root, maxFiles);
+  const errors = input.findings.filter((f) => f.severity === "error").length;
+  const warnings = input.findings.filter((f) => f.severity === "warning").length;
+  const histFile = join7(root, ".invinsense", "history.json");
+  let history = [];
+  try {
+    history = JSON.parse(read(histFile) || "[]");
+  } catch {
+    history = [];
   }
-  L.push("## Next steps", "");
-  const steps = [];
-  if (!declared["invin-uix"]) steps.push("Install invin-uix and Tailwind v4, then import `./uix.css` before `globals.css`.");
-  if (thirdUi.length) steps.push(`Replace the ${thirdUi.length} third-party UI package(s) above, biggest usage first.`);
-  if (thirdUi.some(([n]) => UI_LIBS.find((l) => l.re.test(n))?.kind === "Icons")) steps.push("Swap non-Phosphor icon packages for @phosphor-icons/react (Law 11).");
-  if (total > 0 && uixUses / total < 0.5) steps.push("Less than half of your component usages come from invin-uix. Prioritise charts, tables, KPI cards and badges.");
-  steps.push("Run `review_invinsense_ui` on changed files, then `npm run build`.");
-  steps.forEach((s, i) => L.push(`${i + 1}. ${s}`));
+  const entry = { at: (/* @__PURE__ */ new Date()).toISOString(), total: score.total, grade: score.grade, errors, warnings, files: input.filesScanned };
+  const prev = history[history.length - 1];
+  const L = [`# Invinsense report: ${root.split("/").pop()}`, `Generated ${entry.at.slice(0, 16).replace("T", " ")} UTC. ${input.filesScanned} files, ${input.lines.toLocaleString("en-US")} lines.`, ""];
+  L.push(`## Score: ${score.total}/100, grade ${score.grade}${prev ? ` (${score.total - prev.total >= 0 ? "+" : ""}${score.total - prev.total} since ${prev.at.slice(0, 10)})` : ""}`, `_${score.verdict}_`, "");
+  L.push("| Category | Score | Detail |", "|---|---:|---|", ...score.categories.map((c) => `| ${c.name} | ${c.score}/${c.max} | ${c.detail} |`));
+  if (score.wins.length) L.push("", "Biggest wins:", ...score.wins.map((w, i) => `${i + 1}. ${w}`));
+  const trend = [...history.slice(-7), entry];
+  if (trend.length > 1) {
+    L.push("", "## Trend", "", "| Date | Score | Grade | Errors | Warnings |", "|---|---:|:-:|---:|---:|");
+    trend.forEach((h, i) => L.push(`| ${h.at.slice(0, 10)}${i === trend.length - 1 ? " (now)" : ""} | ${h.total} | ${h.grade} | ${h.errors} | ${h.warnings} |`));
+  } else L.push("", "_No history yet. Save this report to start a trend line._");
+  const shift = (t) => t.replace(/^(#+)\s/gm, "$1# ");
+  L.push("", "---", "", shift(hotspots(root, 8, maxFiles)), "", "---", "", shift(routes(root, maxFiles)), "", "---", "", shift(tokens(root, maxFiles)));
+  L.push("", "---", "", shift(auditComponents({ path: root, maxFiles, detail: "summary" })));
+  if (save) {
+    mkdirSync4(join7(root, ".invinsense"), { recursive: true });
+    history.push(entry);
+    writeFileSync4(histFile, JSON.stringify(history.slice(-100), null, 2) + "\n");
+    writeFileSync4(join7(root, "invinsense-report.md"), L.join("\n") + "\n");
+    L.push("", `Saved \`invinsense-report.md\` and appended to \`.invinsense/history.json\` (commit the history file to share the trend, or add \`.invinsense/\` and \`invinsense-report.md\` to .gitignore).`);
+  } else L.push("", "_Not saved. Re-run with save to write `invinsense-report.md` and record this score in the trend._");
   return L.join("\n");
 }
 
@@ -24772,6 +25193,25 @@ server.registerTool(
   }
 );
 server.registerTool(
+  "score_invinsense_compliance",
+  {
+    title: "Score a project against the Invinsense Module UI Guide (0 to 100)",
+    description: "Read-only. Scans a project and returns one compliance score out of 100 with a letter grade (A 90+, B 80+, C 70+, D 60+, F below). Violations 50 points (guide rule findings per 1,000 lines, errors weigh more than warnings), structure 30 points (10 new-module checklist items: tokens, theme, fonts, icons, shell, nav links, four states, tour, reduced motion, charts), components 20 points (no third-party UI libraries, invin-uix adoption). Returns a per-category breakdown and the five changes that would gain the most points. Internal tracking score, not part of the guide itself.",
+    inputSchema: {
+      path: external_exports.string().min(1).describe("ABSOLUTE path of the project root"),
+      maxFiles: external_exports.number().int().min(1).max(5e3).default(1500)
+    },
+    annotations: ReadOnly
+  },
+  async (a) => {
+    try {
+      return text(scoreProject(a.path, a.maxFiles).text);
+    } catch (e) {
+      return { ...text(`Could not score: ${e.message}`), isError: true };
+    }
+  }
+);
+server.registerTool(
   "audit_ui_components",
   {
     title: "Audit which UI components come from invin-uix and which are third-party",
@@ -24785,11 +25225,63 @@ server.registerTool(
   },
   async (a) => {
     try {
-      return text(auditComponents({ path: a.path, detail: a.detail, maxFiles: a.maxFiles }));
+      const report2 = auditComponents({ path: a.path, detail: a.detail, maxFiles: a.maxFiles });
+      const { score } = scoreProject(a.path, a.maxFiles);
+      return text(`${report2}
+
+${formatScore(score)}`);
     } catch (e) {
       return { ...text(`Could not audit: ${e.message}`), isError: true };
     }
   }
+);
+var safe = (label, fn) => {
+  try {
+    return text(fn());
+  } catch (e) {
+    return { ...text(`Could not ${label}: ${e.message}`), isError: true };
+  }
+};
+var pathArg = external_exports.string().min(1).describe("ABSOLUTE path of the project root");
+server.registerTool(
+  "invinsense_hotspots",
+  {
+    title: "Rank files by Invinsense guide violations",
+    description: "Read-only. Ranks the files with the most guide violations (errors weigh 3, warnings 1), shows each file's share of the total, counts findings by rule with a fix hint, and counts invinsense-allow suppressions. Use it to decide which file to fix first.",
+    inputSchema: { path: pathArg, top: external_exports.number().int().min(1).max(50).default(10), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    annotations: ReadOnly
+  },
+  async (a) => safe("rank hotspots", () => hotspots(a.path, a.top, a.maxFiles))
+);
+server.registerTool(
+  "invinsense_routes",
+  {
+    title: "List Next.js routes with state coverage",
+    description: "Read-only. Lists every App Router page with whether it has loading and error handling (inherited from parent folders counts), an empty state, invin-uix usage, a navigation link and whether it is a client component. Flags gaps and a missing not-found page. App Router only.",
+    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    annotations: ReadOnly
+  },
+  async (a) => safe("list routes", () => routes(a.path, a.maxFiles))
+);
+server.registerTool(
+  "invinsense_tokens",
+  {
+    title: "Show design token usage",
+    description: "Read-only. Shows the most used CSS tokens, files with hardcoded hex colours, tokens that are used but never defined (including checks against invin-uix tokens when installed), and tokens defined but never used.",
+    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    annotations: ReadOnly
+  },
+  async (a) => safe("check tokens", () => tokens(a.path, a.maxFiles))
+);
+server.registerTool(
+  "invinsense_report",
+  {
+    title: "Full Invinsense project report with score trend",
+    description: "Builds one markdown report: score and breakdown, trend over previous runs, hotspots, routes, tokens and the component audit. With save=true it writes invinsense-report.md and appends the score to .invinsense/history.json in the project (the only writes; default is read-only).",
+    inputSchema: { path: pathArg, save: external_exports.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+  },
+  async (a) => safe("build report", () => report(a.path, a.save, a.maxFiles))
 );
 server.registerResource(
   "best-practice",

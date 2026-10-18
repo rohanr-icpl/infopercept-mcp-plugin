@@ -17,9 +17,14 @@ Then restart Claude Code (or run `/reload-plugins`). Requires Node 18+.
 | `/invinsense-frontend:convert <path> [family] [apply]` | Audit (dry run) or convert an existing product to the guideline |
 | `/invinsense-frontend:new-page <route> [list\|dashboard\|detail\|form\|blank] [title]` | Add a page to a Next.js module: files, four states, sidebar link |
 | `/invinsense-frontend:audit-components [path] [full]` | Count components from invin-uix vs local vs third-party, with replacements |
+| `/invinsense-frontend:score [path]` | Compliance score 0 to 100 with grade and the biggest wins |
+| `/invinsense-frontend:hotspots [path]` | Files ranked by violations, with the fix for each rule |
+| `/invinsense-frontend:routes [path]` | Every route with loading, error, empty-state and nav coverage |
+| `/invinsense-frontend:tokens [path]` | Token usage, hardcoded colours, undefined and unused tokens |
+| `/invinsense-frontend:report [path] [save]` | Everything in one report, plus a score trend over time |
 | `/invinsense-frontend:review <file-or-folder>` | Review UI code against the guide and React/Next.js practices |
 
-Plus the `invinsense-ui` skill (auto-applies the guide) and 14 MCP tools (`invinsense` server).
+Plus the `invinsense-ui` skill (auto-applies the guide) and 15 MCP tools (`invinsense` server).
 
 ## Maintainers: update the plugin
 

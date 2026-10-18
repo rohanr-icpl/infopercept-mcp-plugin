@@ -8,6 +8,8 @@ import { scaffoldProject } from "./project.js";
 import { convertProject, ALL_FIXES, type FixId } from "./convert.js";
 import { addPage } from "./page.js";
 import { auditComponents } from "./audit.js";
+import { scoreProject, formatScore } from "./score.js";
+import { hotspots, routes, tokens, report } from "./insight.js";
 import { reviewCode } from "./reviewer.js";
 import { componentTemplate, testTemplate, featureStructure } from "./scaffold.js";
 
@@ -308,6 +310,27 @@ server.registerTool(
 );
 
 server.registerTool(
+  "score_invinsense_compliance",
+  {
+    title: "Score a project against the Invinsense Module UI Guide (0 to 100)",
+    description:
+      "Read-only. Scans a project and returns one compliance score out of 100 with a letter grade (A 90+, B 80+, C 70+, D 60+, F below). Violations 50 points (guide rule findings per 1,000 lines, errors weigh more than warnings), structure 30 points (10 new-module checklist items: tokens, theme, fonts, icons, shell, nav links, four states, tour, reduced motion, charts), components 20 points (no third-party UI libraries, invin-uix adoption). Returns a per-category breakdown and the five changes that would gain the most points. Internal tracking score, not part of the guide itself.",
+    inputSchema: {
+      path: z.string().min(1).describe("ABSOLUTE path of the project root"),
+      maxFiles: z.number().int().min(1).max(5000).default(1500),
+    },
+    annotations: ReadOnly,
+  },
+  async (a) => {
+    try {
+      return text(scoreProject(a.path, a.maxFiles).text);
+    } catch (e) {
+      return { ...text(`Could not score: ${(e as Error).message}`), isError: true };
+    }
+  },
+);
+
+server.registerTool(
   "audit_ui_components",
   {
     title: "Audit which UI components come from invin-uix and which are third-party",
@@ -322,11 +345,66 @@ server.registerTool(
   },
   async (a) => {
     try {
-      return text(auditComponents({ path: a.path, detail: a.detail, maxFiles: a.maxFiles }));
+      const report = auditComponents({ path: a.path, detail: a.detail, maxFiles: a.maxFiles });
+      const { score } = scoreProject(a.path, a.maxFiles);
+      return text(`${report}\n\n${formatScore(score)}`);
     } catch (e) {
       return { ...text(`Could not audit: ${(e as Error).message}`), isError: true };
     }
   },
+);
+
+const safe = (label: string, fn: () => string) => {
+  try {
+    return text(fn());
+  } catch (e) {
+    return { ...text(`Could not ${label}: ${(e as Error).message}`), isError: true };
+  }
+};
+const pathArg = z.string().min(1).describe("ABSOLUTE path of the project root");
+
+server.registerTool(
+  "invinsense_hotspots",
+  {
+    title: "Rank files by Invinsense guide violations",
+    description: "Read-only. Ranks the files with the most guide violations (errors weigh 3, warnings 1), shows each file's share of the total, counts findings by rule with a fix hint, and counts invinsense-allow suppressions. Use it to decide which file to fix first.",
+    inputSchema: { path: pathArg, top: z.number().int().min(1).max(50).default(10), maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    annotations: ReadOnly,
+  },
+  async (a) => safe("rank hotspots", () => hotspots(a.path, a.top, a.maxFiles)),
+);
+
+server.registerTool(
+  "invinsense_routes",
+  {
+    title: "List Next.js routes with state coverage",
+    description: "Read-only. Lists every App Router page with whether it has loading and error handling (inherited from parent folders counts), an empty state, invin-uix usage, a navigation link and whether it is a client component. Flags gaps and a missing not-found page. App Router only.",
+    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    annotations: ReadOnly,
+  },
+  async (a) => safe("list routes", () => routes(a.path, a.maxFiles)),
+);
+
+server.registerTool(
+  "invinsense_tokens",
+  {
+    title: "Show design token usage",
+    description: "Read-only. Shows the most used CSS tokens, files with hardcoded hex colours, tokens that are used but never defined (including checks against invin-uix tokens when installed), and tokens defined but never used.",
+    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    annotations: ReadOnly,
+  },
+  async (a) => safe("check tokens", () => tokens(a.path, a.maxFiles)),
+);
+
+server.registerTool(
+  "invinsense_report",
+  {
+    title: "Full Invinsense project report with score trend",
+    description: "Builds one markdown report: score and breakdown, trend over previous runs, hotspots, routes, tokens and the component audit. With save=true it writes invinsense-report.md and appends the score to .invinsense/history.json in the project (the only writes; default is read-only).",
+    inputSchema: { path: pathArg, save: z.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  async (a) => safe("build report", () => report(a.path, a.save, a.maxFiles)),
 );
 
 // ───────────────────────── Resources ─────────────────────────

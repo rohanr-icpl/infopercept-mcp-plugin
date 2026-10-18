@@ -3,6 +3,9 @@ import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { families, tokensCss, REDUCED_MOTION_CSS } from "./content/index.js";
 import { reviewInvinsense } from "./invinsense-reviewer.js";
 import type { Finding } from "./reviewer.js";
+import { structuralGaps, type Gap } from "./gaps.js";
+import { collectComponents } from "./audit.js";
+import { computeScore, componentStats, formatScore, type ScoreFinding } from "./score.js";
 import { STYLE_EXT, gitState, rel, walkSources } from "./fsutil.js";
 
 export type FixId =
@@ -34,7 +37,6 @@ type Stack = "nextjs" | "react" | "static" | "unknown";
 
 interface Change { file: string; fix: FixId; line: number; before: string; after: string }
 
-interface Gap { id: string; title: string; present: boolean; how: string; practiceId: string }
 
 const TOKENS_REL: Record<Stack, string> = {
   nextjs: "src/styles/invinsense-tokens.css",
@@ -124,6 +126,7 @@ function relImport(fromFile: string, toFile: string): string {
 
 export interface ConvertReport {
   text: string;
+  score: number;
   changes: number;
   filesChanged: number;
   remainingErrors: number;
@@ -264,20 +267,21 @@ export function convertProject(o: ConvertOptions): ConvertReport {
 
   // Gaps
   const all = [...fileTexts.entries()].map(([f, t]) => newTexts.get(f) ?? t).join("\n") + [...extraWrites.values()].join("\n");
-  const gap = (id: string, title: string, present: boolean, how: string, practiceId: string): Gap => ({ id, title, present, how, practiceId });
-  const gaps: Gap[] = [
-    gap("tokens", "Shared OKLCH token set (section 05)", /--background\s*:/.test(all) && /--accent\s*:/.test(all), "Adopt the token block verbatim; set --accent to the family pair.", "invinsense-tokens"),
-    gap("theme", "Theme via html[data-theme], restored before first paint", /data-theme/.test(all), "Add the attribute, a topbar toggle and a pre-paint restore script.", "invinsense-theme"),
-    gap("fonts", "Geist and Geist Mono", /geist/i.test(all) || deps.some((d) => /geist/i.test(d)), "Self-host Geist (next/font with the geist package in Next.js).", "invinsense-typography"),
-    gap("icons", "Phosphor Bold icons", /phosphor/i.test(all) || deps.some((d) => /phosphor/i.test(d)), "Replace other icon sets with @phosphor-icons/react (weight=\"bold\").", "invinsense-icons"),
-    gap("shell", "One shell: 262px sidebar, 58px topbar, fixed control order", /sidebar-w|262px/.test(all) && /topbar/i.test(all), "Rebuild the layout on the shared shell (scaffold_invinsense_project shows the reference).", "invinsense-principles"),
-    gap("nav-links", "Navigation is links with aria-current", /aria-current/.test(all), "Use <a href> / next/link with aria-current='page' derived from the route.", "invinsense-navigation"),
-    gap("states", "Four states (loading, empty, error, partial)", /skeleton/i.test(all) && /empty/i.test(all) && /correlation/i.test(all), "Add skeleton, empty (with next action), error (correlation ID + retry) and partial states to every fetching view.", "invinsense-four-states"),
-    gap("tour", "Guided tour (nextstepjs 2.2.0)", /nextstepjs|tour/i.test(all) || deps.includes("nextstepjs"), "Add a specific, replayable tour that auto-starts once.", "invinsense-tour"),
-    gap("reduced-motion", "prefers-reduced-motion block", /prefers-reduced-motion/.test(all), "Add the block last in the stylesheet.", "invinsense-motion-a11y"),
-    gap("charts", "reaviz for charts", !deps.some((d) => /recharts|chart\.js|apexcharts|highcharts|victory|nivo/.test(d)) , "Move charts to reaviz; keep recharts only where it already works.", "invinsense-charts"),
-  ];
+  const gaps = structuralGaps(all, deps);
   const gapsOpen = gaps.filter((g) => !g.present);
+
+  // Compliance score: before the change and (in apply mode) after it
+  const comps = componentStats(collectComponents(root, o.maxFiles));
+  const toScoreFindings = (texts: Map<string, string>): ScoreFinding[] => {
+    const out: ScoreFinding[] = [];
+    for (const [file, t] of texts) for (const f of reviewInvinsense(t)) out.push({ rule: f.rule, severity: f.severity, file: rel(root, file), line: f.line });
+    return out;
+  };
+  const lineCount = (texts: Iterable<string>) => [...texts].reduce((n, t) => n + t.split("\n").length, 0);
+  const afterTexts = new Map<string, string>([...fileTexts].map(([f, t]) => [f, newTexts.get(f) ?? t]));
+  const beforeAll = [...fileTexts.values()].join("\n");
+  const scoreBefore = computeScore({ findings: toScoreFindings(fileTexts), lines: lineCount(fileTexts.values()), filesScanned: fileTexts.size, gaps: structuralGaps(beforeAll, deps), components: comps });
+  const scoreAfter = o.mode === "apply" ? computeScore({ findings: toScoreFindings(afterTexts), lines: lineCount(afterTexts.values()), filesScanned: afterTexts.size, gaps, components: comps }) : null;
 
   // Report
   const byFix = new Map<FixId, number>();
@@ -299,6 +303,8 @@ export function convertProject(o: ConvertOptions): ConvertReport {
   L.push(`Project: ${root}`);
   L.push(`Stack: ${stack}${deps.length ? ` (${deps.filter((d) => /^(next|react|vue|svelte|vite|tailwindcss)$/.test(d)).join(", ")})` : ""}   Family: ${fam.name}   Files scanned: ${walked.files.length}${walked.truncated ? " (truncated at maxFiles)" : ""}${walked.skipped ? `, ${walked.skipped} oversized skipped` : ""}`);
   L.push("");
+  if (scoreAfter) L.push(formatScore(scoreAfter, { title: o.dryRun ? "Projected compliance score after fixes" : "Compliance score after fixes", before: scoreBefore }), "");
+  else L.push(formatScore(scoreBefore, { title: "Compliance score" }), "");
   if (o.mode === "apply") {
     L.push(`## Automatic fixes ${willWrite ? "applied" : "that would be applied"}: ${changes.length} change(s) in ${filesChanged} file(s)`);
     if (!changes.length && !structural.length) L.push("- Nothing mechanical to change.");
@@ -333,5 +339,5 @@ export function convertProject(o: ConvertOptions): ConvertReport {
   if (o.writeReport && willWrite) {
     writeFileSync(join(root, "INVINSENSE_MIGRATION.md"), text + "\n", "utf8");
   }
-  return { text, changes: changes.length, filesChanged, remainingErrors, wrote };
+  return { text, score: (scoreAfter ?? scoreBefore).total, changes: changes.length, filesChanged, remainingErrors, wrote };
 }

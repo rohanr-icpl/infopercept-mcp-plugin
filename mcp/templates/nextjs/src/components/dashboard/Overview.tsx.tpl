@@ -5,6 +5,7 @@ import { Badge } from "invin-uix/ui/badge";
 import { DataTable, type ColumnDef } from "invin-uix/ui/data-table";
 import { AreaChart, BarChart, DonutChart, GaugeChart } from "invin-uix/ui/chart";
 import { Status, type Tone } from "@/components/ui/Status";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   casesByCategory,
   coverageScore,
@@ -79,6 +80,7 @@ export function Overview() {
           paginated
           pageSize={5}
           stickyHeader
+          emptyState={<EmptyState title="No events yet" why="Events appear here after a source sends its first record." />}
         />
       </section>
     </>
