@@ -9,6 +9,21 @@ claude plugin install invinsense-frontend@infopercept-tools
 
 Then restart Claude Code (or run `/reload-plugins`). Requires Node 18+.
 
+## One-command install (Claude Code, Kiro, Cursor)
+
+```bash
+git clone https://github.com/rohanr-icpl/infopercept-mcp-plugin.git
+cd infopercept-mcp-plugin
+./install.sh                 # every agent found on this machine
+./install.sh kiro cursor     # only these
+./install.sh --project       # write into the current project instead of your home folder
+./install.sh --update        # pull the latest version and reinstall
+./install.sh --uninstall     # remove it
+./install.sh --dry-run       # preview, writes nothing
+```
+
+Needs `git` and `node` 18 or newer. Claude Code gets the full plugin (slash commands plus tools). Kiro and Cursor get the MCP server (all tools); with `--project` they also get a rule file so the agent follows the guide. Existing MCP config files are merged, never overwritten, and a `.bak` copy is kept. Restart the agent afterwards.
+
 ## What you get
 
 | Command | Purpose |
