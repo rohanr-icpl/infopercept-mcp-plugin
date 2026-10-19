@@ -145,14 +145,36 @@ if want desktop; then
   fi
 fi
 
+
+# Short commands (/score, /hotspots ...) for Kiro and Cursor. Same wording everywhere; only the folder and front matter differ.
+CMD_TOOLS="score:score_invinsense_compliance hotspots:invinsense_hotspots routes:invinsense_routes tokens:invinsense_tokens report:invinsense_report audit:audit_ui_components"
+write_cmds() { # dir  front-matter-mode(plain|kiro)  [remove]
+  local dir="$1" mode="$2" pair name tool
+  for pair in $CMD_TOOLS; do
+    name="${pair%%:*}"; tool="${pair##*:}"
+    if [ "${3:-}" = remove ]; then run rm -f "$dir/$name.md"; continue; fi
+    [ "$DRY" = 1 ] && continue
+    mkdir -p "$dir"
+    {
+      [ "$mode" = kiro ] && printf -- '---\ninclusion: manual\n---\n\n'
+      printf 'Run the Invinsense `%s` tool (MCP server "invinsense") and show the result.\n\n' "$tool"
+      printf 'Arguments come after the command. The first non-flag word is the project path; if none, use the current workspace root as an absolute path.\n'
+      printf 'Add `--top N` for hotspots and `--save` for report.\n\n'
+      printf 'If `--json` is present: call the tool with `format: "json"` and reply with ONLY the raw JSON it returns, in one json code block. No summary, no commentary, no next steps.\n'
+      printf 'Otherwise: show the markdown result and name the single most useful next action.\n\nRead-only unless `--save` is given.\n'
+    } > "$dir/$name.md"
+  done
+}
+
 # ---------- Kiro ----------
 if want kiro; then
   say "Kiro"
-  if [ "$PROJECT" = 1 ]; then KCFG="$PWD/.kiro/settings/mcp.json"; KSTEER="$PWD/.kiro/steering"; else KCFG="$HOME/.kiro/settings/mcp.json"; KSTEER="$HOME/.kiro/steering"; fi
+  if [ "$PROJECT" = 1 ]; then KCFG="$PWD/.kiro/settings/mcp.json"; KSTEER="$PWD/.kiro/steering"; KPROMPTS="$PWD/.kiro/prompts"; else KCFG="$HOME/.kiro/settings/mcp.json"; KSTEER="$HOME/.kiro/steering"; KPROMPTS="$HOME/.kiro/prompts"; fi
   if [ "$PROJECT" = 1 ] || [ -d "$HOME/.kiro" ] || command -v kiro >/dev/null 2>&1 || command -v kiro-cli >/dev/null 2>&1 || [ -d "/Applications/Kiro.app" ] || explicit kiro; then
     if [ "$UNINSTALL" = 1 ]; then
       [ -f "$KCFG" ] && json_set "$KCFG" mcpServers remove && ok "removed from $KCFG" || skip "nothing to remove"
       run rm -f "$KSTEER/invinsense-ui.md"
+      write_cmds "$KSTEER" kiro remove; write_cmds "$KPROMPTS" plain remove
     else
       json_set "$KCFG" mcpServers add && ok "MCP server added to $KCFG"
       if [ -f "$SKILL" ]; then
@@ -162,6 +184,8 @@ if want kiro; then
         fi
         ok "steering rule written to $KSTEER/invinsense-ui.md"
       fi
+      write_cmds "$KSTEER" kiro; write_cmds "$KPROMPTS" plain
+      ok "commands written: /score /hotspots /routes /tokens /report /audit (Kiro IDE: manual steering in chat; Kiro CLI: prompts in $KPROMPTS). Add --json for JSON only."
       say "  Applies to Kiro IDE and Kiro CLI (same config file). Restart Kiro, or start a new CLI chat, and ask: \"List the Invinsense tools\"."
     fi
   else
@@ -172,11 +196,12 @@ fi
 # ---------- Cursor ----------
 if want cursor; then
   say "Cursor"
-  if [ "$PROJECT" = 1 ]; then CCFG="$PWD/.cursor/mcp.json"; CRULES="$PWD/.cursor/rules"; else CCFG="$HOME/.cursor/mcp.json"; CRULES=""; fi
+  if [ "$PROJECT" = 1 ]; then CCFG="$PWD/.cursor/mcp.json"; CRULES="$PWD/.cursor/rules"; CCMDS="$PWD/.cursor/commands"; else CCFG="$HOME/.cursor/mcp.json"; CRULES=""; CCMDS="$HOME/.cursor/commands"; fi
   if [ "$PROJECT" = 1 ] || [ -d "$HOME/.cursor" ] || command -v cursor >/dev/null 2>&1 || command -v cursor-agent >/dev/null 2>&1 || [ -d "/Applications/Cursor.app" ] || explicit cursor; then
     if [ "$UNINSTALL" = 1 ]; then
       [ -f "$CCFG" ] && json_set "$CCFG" mcpServers remove && ok "removed from $CCFG" || skip "nothing to remove"
       [ -n "$CRULES" ] && run rm -f "$CRULES/invinsense-ui.mdc"
+      write_cmds "$CCMDS" plain remove
     else
       json_set "$CCFG" mcpServers add && ok "MCP server added to $CCFG"
       if [ -n "$CRULES" ] && [ -f "$SKILL" ]; then
@@ -186,6 +211,8 @@ if want cursor; then
         fi
         ok "project rule written to $CRULES/invinsense-ui.mdc"
       fi
+      write_cmds "$CCMDS" plain
+      ok "commands written to $CCMDS: /score /hotspots /routes /tokens /report /audit. Add --json for JSON only."
       say "  Applies to the Cursor editor and the Cursor CLI (cursor-agent shares this file). Restart Cursor; check Settings > MCP for a green dot, or run: cursor-agent mcp list"
     fi
   else
