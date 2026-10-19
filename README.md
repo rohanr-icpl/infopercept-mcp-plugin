@@ -23,7 +23,7 @@ cd infopercept-mcp-plugin
 ./install.sh --dry-run       # preview, writes nothing
 ```
 
-Needs `git` and `node` 18 or newer. Claude Code gets the full plugin (slash commands plus tools). The Claude desktop app gets the tools through its MCP config (written with an absolute path to node, because GUI apps have a minimal PATH); fully quit and reopen the app. For slash commands in the app, also add the marketplace under Settings > Plugins > Add using the repo URL, then install `invinsense-frontend` from Discover. Kiro and Cursor get the MCP server (all tools); with `--project` they also get a rule file so the agent follows the guide. Existing MCP config files are merged, never overwritten, and a `.bak` copy is kept. Restart the agent afterwards.
+Needs `git` and `node` 18 or newer. Claude Code gets the full plugin (slash commands plus tools). The Claude desktop app gets the tools through its MCP config (written with an absolute path to node, because GUI apps have a minimal PATH); fully quit and reopen the app. The same commands are available there as prompts (`invinsense-score`, `invinsense-report`, `invinsense-hotspots`, `invinsense-routes`, `invinsense-tokens`, `invinsense-new-page`, `invinsense-review`, `invinsense-audit-components`) in the + menu of a chat, so no extra Plugins-screen steps are needed. Kiro (IDE and CLI share one config file) and Cursor (editor and `cursor-agent` CLI share one config file) get the MCP server (all tools); with `--project` they also get a rule file so the agent follows the guide. Existing MCP config files are merged, never overwritten, and a `.bak` copy is kept. Restart the agent afterwards.
 
 ## What you get
 
@@ -39,6 +39,8 @@ Needs `git` and `node` 18 or newer. Claude Code gets the full plugin (slash comm
 | `/invinsense-frontend:tokens [path]` | Token usage, hardcoded colours, undefined and unused tokens |
 | `/invinsense-frontend:report [path] [save]` | Everything in one report, plus a score trend over time |
 | `/invinsense-frontend:review <file-or-folder>` | Review UI code against the guide and React/Next.js practices |
+
+**JSON output.** Add `--json` to `score`, `hotspots`, `routes`, `tokens`, `report` or `audit-components` for raw JSON only (prompts: `json` = `yes`; tools: `format: "json"`). CI without an agent: `node plugins/invinsense-frontend/server/index.mjs score . --json --min-score 85`. Details in the plugin README.
 
 Plus the `invinsense-ui` skill (auto-applies the guide) and 15 MCP tools (`invinsense` server).
 

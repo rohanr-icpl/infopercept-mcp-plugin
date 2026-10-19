@@ -14,7 +14,7 @@ Build Invinsense modules that follow the **Invinsense Module UI Guide v2.0** and
 |---|---|
 | **10 slash commands** | `new-project`, `new-page`, `convert`, `audit-components`, `score`, `hotspots`, `routes`, `tokens`, `report`, `review` |
 | **Skill `invinsense-ui`** | Claude applies the guide on its own whenever you build or edit Invinsense UI, no command needed |
-| **MCP server `invinsense`** | 19 tools, 46 resources and 5 prompts that do the real work (see [Tool reference](#5-tool-reference)) |
+| **MCP server `invinsense`** | 19 tools, 46 resources and 13 prompts that do the real work (see [Tool reference](#5-tool-reference)) |
 
 The commands are thin: they tell Claude which MCP tool to call and in what order. The MCP server does the generating, converting and checking, so results are identical in every agent.
 
@@ -36,7 +36,7 @@ cd infopercept-mcp-plugin
 ./install.sh --dry-run       # preview, writes nothing
 ```
 
-Needs `git` and `node` 18 or newer. Claude Code gets the full plugin (slash commands plus tools). The Claude desktop app gets the tools through its MCP config (written with an absolute path to node, because GUI apps have a minimal PATH); fully quit and reopen the app. For slash commands in the app, also add the marketplace under Settings > Plugins > Add using the repo URL, then install `invinsense-frontend` from Discover. Kiro and Cursor get the MCP server (all tools); with `--project` they also get a rule file so the agent follows the guide. Existing MCP config files are merged, never overwritten, and a `.bak` copy is kept. Restart the agent afterwards.
+Needs `git` and `node` 18 or newer. Claude Code gets the full plugin (slash commands plus tools). The Claude desktop app gets the tools through its MCP config (written with an absolute path to node, because GUI apps have a minimal PATH); fully quit and reopen the app. The same commands are available there as prompts (`invinsense-score`, `invinsense-report`, `invinsense-hotspots`, `invinsense-routes`, `invinsense-tokens`, `invinsense-new-page`, `invinsense-review`, `invinsense-audit-components`) in the + menu of a chat, so no extra Plugins-screen steps are needed. Kiro (IDE and CLI share one config file) and Cursor (editor and `cursor-agent` CLI share one config file) get the MCP server (all tools); with `--project` they also get a rule file so the agent follows the guide. Existing MCP config files are merged, never overwritten, and a `.bak` copy is kept. Restart the agent afterwards.
 
 ### Claude Code / Claude desktop app
 
@@ -278,6 +278,37 @@ How it is calculated (internal measure, not part of the Module UI Guide):
 Grades: **A** 90+, **B** 80+, **C** 70+, **D** 60+, **F** below 60.
 
 The score also appears automatically at the top of `convert` (in apply mode as "projected score after fixes, was N") and at the end of `audit-components`, and `review` reports it when you review a folder.
+
+### JSON output: `--json`
+
+Add `--json` to `score`, `hotspots`, `routes`, `tokens`, `report` or `audit-components` and the reply is raw JSON only, no prose. In the desktop app, Kiro and Cursor, set the `json` argument of the matching `invinsense-*` prompt to `yes`, or call the tool with `format: "json"`.
+
+```
+/invinsense-frontend:score ~/Code/my-module --json
+```
+
+```json
+{
+  "project": "my-module",
+  "total": 98,
+  "grade": "A",
+  "categories": [{ "name": "Guide violations", "score": 50, "max": 50, "detail": "No violations found" }],
+  "findings": { "errors": 0, "warnings": 2, "info": 0 }
+}
+```
+
+**Without an AI agent (CI, scripts).** The same server also runs as a plain command. Nothing is sent anywhere; it only reads files.
+
+```bash
+node ~/.infopercept/infopercept-mcp-plugin/plugins/invinsense-frontend/server/index.mjs score . --json
+node .../server/index.mjs score . --min-score 85        # exit code 1 if below 85
+node .../server/index.mjs hotspots . --top 5 --json | jq '.worstFiles[0].file'
+node .../server/index.mjs report . --save               # writes report, records trend
+```
+
+Commands: `score`, `hotspots`, `routes`, `tokens`, `report`, `audit`. Options: `--json`, `--min-score N`, `--top N`, `--save`, `--max-files N`. Exit codes: 0 ok, 1 score below `--min-score`, 2 error (with `--json` the error is `{"error": "..."}`).
+
+Not covered yet: `review`, `convert` and `new-page` (they edit files, so they keep their markdown summaries).
 
 ### `/invinsense-frontend:review <file-or-folder>`
 

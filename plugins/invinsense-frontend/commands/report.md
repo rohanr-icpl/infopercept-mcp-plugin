@@ -1,6 +1,6 @@
 ---
 description: One full Invinsense report with score, trend, hotspots, routes, tokens and component audit
-argument-hint: [path] [save]
+argument-hint: [path] [save] [--json]
 ---
 
 Build the full project report with the Invinsense MCP server's `invinsense_report` tool.
@@ -14,3 +14,5 @@ Steps:
 4. If saved, tell the user the two files written (`invinsense-report.md`, `.invinsense/history.json`) and that the history file is what draws the trend.
 
 Without `save` this is read-only. With `save` it writes only those two files.
+
+**`--json`**: if the user input contains `--json`, remove that flag from the path, call `invinsense_report` with `format: "json"`, and reply with ONLY the raw JSON it returns in one ```json block. No summary, no commentary, no next-step offer.

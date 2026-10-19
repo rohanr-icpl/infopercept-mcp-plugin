@@ -1,6 +1,6 @@
 ---
 description: List every route with its loading, error, empty-state and navigation coverage
-argument-hint: [path]
+argument-hint: [path] [--json]
 ---
 
 Inventory the pages of a Next.js App Router project with the `invinsense_routes` tool.
@@ -13,3 +13,5 @@ Steps:
 3. For each gap, name the file to add (loading.tsx, error.tsx, an EmptyState) and offer to do it. Use `new-page` for brand-new routes.
 
 Read-only. Do not change any files unless asked.
+
+**`--json`**: if the user input contains `--json`, remove that flag from the path, call `invinsense_routes` with `format: "json"`, and reply with ONLY the raw JSON it returns in one ```json block. No summary, no commentary, no next-step offer.

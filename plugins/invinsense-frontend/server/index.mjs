@@ -2981,7 +2981,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve5.call(this, root, ref);
+      let _sch = resolve6.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3008,7 +3008,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve5(root, ref) {
+    function resolve6(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3838,7 +3838,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve5(baseURI, relativeURI, options) {
+    function resolve6(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -4207,7 +4207,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve5,
+      resolve: resolve6,
       resolveComponent,
       equal,
       serialize,
@@ -19306,7 +19306,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
+        await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -19323,7 +19323,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve6, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -19401,7 +19401,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve5(parseResult.data);
+            resolve6(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -19662,12 +19662,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve6, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve5, interval);
+      const timeoutId = setTimeout(resolve6, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -20980,7 +20980,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve5) => setTimeout(resolve5, pollInterval));
+      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -21573,7 +21573,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
-import process from "node:process";
+import process2 from "node:process";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
 var STDIO_DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
@@ -21614,7 +21614,7 @@ function serializeMessage(message) {
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 var StdioServerTransport = class {
-  constructor(_stdin = process.stdin, _stdout = process.stdout, options) {
+  constructor(_stdin = process2.stdin, _stdout = process2.stdout, options) {
     this._stdin = _stdin;
     this._stdout = _stdout;
     this._started = false;
@@ -21668,12 +21668,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve6) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve5();
+        resolve6();
       } else {
-        this._stdout.once("drain", resolve5);
+        this._stdout.once("drain", resolve6);
       }
     });
   }
@@ -23341,6 +23341,45 @@ function auditComponents(o) {
   steps.forEach((s, i) => L.push(`${i + 1}. ${s}`));
   return L.join("\n");
 }
+function auditData(root, maxFiles = 2e3) {
+  if (!existsSync3(root)) throw new Error(`Path does not exist: ${root}`);
+  const { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles } = collectComponents(root, maxFiles);
+  const sum = (it) => [...it].reduce((n, a) => n + a.uses, 0);
+  const uixUses = sum(uix.values());
+  const thirdUi = [...third.entries()].filter(([, a]) => a.uiLike);
+  const thirdUiUses = sum(thirdUi.map(([, a]) => a));
+  const total = uixUses + local.uses + thirdUiUses;
+  const share = (n) => total === 0 ? 0 : Math.round(n / total * 100);
+  const avail = availableUix(root);
+  const used = new Set([...uix.keys()].map((k) => k.replace(/^invin-uix\/ui\//, "")));
+  const dupes = [];
+  if (avail) {
+    for (const f of localComponentFiles) {
+      const stem = kebab(basename(f).replace(/\.(tsx|jsx)$/, ""));
+      const match = avail.find((a) => a === stem || a.endsWith(`/${stem}`));
+      if (match) dupes.push({ file: rel(root, f), invinUix: `invin-uix/ui/${match}` });
+    }
+  }
+  return {
+    project: basename(root),
+    filesScanned: files.length,
+    truncated: Boolean(walked.truncated),
+    invinUixDeclared: Boolean(declared["invin-uix"]),
+    usages: { invinUix: uixUses, local: local.uses, thirdPartyUi: thirdUiUses, total },
+    sharePercent: { invinUix: share(uixUses), local: share(local.uses), thirdPartyUi: share(thirdUiUses) },
+    icons: { phosphorUsages: iconsUses.uses, files: iconsUses.files.size },
+    invinUixEntryPoints: [...uix.entries()].sort((x, y) => y[1].uses - x[1].uses).map(([entry, a]) => ({ entry, components: [...a.names], usages: a.uses, files: a.files.size })),
+    filesUsingInvinUix: filesWithUix.size,
+    thirdPartyUi: thirdUi.sort((x, y) => y[1].uses - x[1].uses).map(([name, a]) => {
+      const lib = UI_LIBS.find((l) => l.re.test(name));
+      return { package: name, version: declared[name] ?? null, usages: a.uses, files: a.files.size, kind: lib?.kind ?? "UI component", replaceWith: lib?.hint ?? "Check whether invin-uix has an equivalent." };
+    }),
+    otherThirdParty: [...third.entries()].filter(([, a]) => !a.uiLike).map(([name, a]) => ({ package: name, files: a.files.size })),
+    possibleDuplicates: dupes,
+    invinUixAvailable: avail ? avail.length : null,
+    invinUixUnused: avail ? avail.filter((a) => !used.has(a)) : null
+  };
+}
 
 // src/score.ts
 import { existsSync as existsSync4, readFileSync as readFileSync3 } from "node:fs";
@@ -23476,6 +23515,23 @@ function scoreProject(path, maxFiles = 1500) {
   const score = computeScore(input);
   const text2 = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, "", formatScore(score)].join("\n");
   return { score, input, text: text2 };
+}
+function scoreData(path, maxFiles = 1500) {
+  const { score, input } = scoreProject(path, maxFiles);
+  const count = (s) => input.findings.filter((f) => f.severity === s).length;
+  return {
+    project: resolve2(path).split("/").pop(),
+    total: score.total,
+    grade: score.grade,
+    verdict: score.verdict,
+    categories: score.categories,
+    wins: score.wins,
+    filesScanned: input.filesScanned,
+    lines: input.lines,
+    findings: { errors: count("error"), warnings: count("warning"), info: count("info") },
+    gaps: input.gaps,
+    components: input.components
+  };
 }
 
 // src/convert.ts
@@ -24402,6 +24458,9 @@ var requireRoot = (path) => {
 };
 var md = (rows) => rows.map((r) => `| ${r.join(" | ")} |`).join("\n");
 function hotspots(path, top = 10, maxFiles = 1500) {
+  return hotspotsRun(path, top, maxFiles).text;
+}
+function hotspotsRun(path, top = 10, maxFiles = 1500) {
   const root = requireRoot(path);
   const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
   const rows = [];
@@ -24431,10 +24490,21 @@ function hotspots(path, top = 10, maxFiles = 1500) {
   const weight = (r) => r.e * WEIGHTS.errorCost + r.w * WEIGHTS.warningCost;
   rows.sort((a, b) => weight(b) - weight(a) || b.e - a.e);
   const total = rows.reduce((n, r) => n + weight(r), 0);
+  const share = (n) => Math.round(n / Math.max(1, total) * 100);
+  const data = {
+    project: root.split("/").pop(),
+    filesScanned: walked.files.length,
+    lines: totalLines,
+    filesWithFindings: rows.length,
+    suppressions: suppressed,
+    worstFiles: rows.slice(0, top).map((r) => ({ file: r.file, errors: r.e, warnings: r.w, weighted: weight(r), sharePercent: share(weight(r)) })),
+    top3SharePercent: share(rows.slice(0, 3).reduce((n, r) => n + weight(r), 0)),
+    byRule: [...rules3.entries()].sort((a, b) => b[1].n * (b[1].sev === "error" ? 3 : 1) - a[1].n * (a[1].sev === "error" ? 3 : 1)).slice(0, 15).map(([rule, r]) => ({ rule, severity: r.sev, count: r.n, files: r.files.size, fix: FIX_HINT[rule] ?? null }))
+  };
   const L = [`# Hotspots: ${root.split("/").pop()}`, `Scanned ${walked.files.length} files, ${totalLines.toLocaleString("en-US")} lines. ${rows.length} file(s) have findings. ${suppressed} line(s) carry \`invinsense-allow\`.`, ""];
   if (!rows.length) {
     L.push("\u2705 No findings in any file.");
-    return L.join("\n");
+    return { data, text: L.join("\n") };
   }
   L.push(`## Worst files (top ${Math.min(top, rows.length)} of ${rows.length})`, "", "| File | Errors | Warnings | Weighted | Share of total |", "|---|---:|---:|---:|---:|");
   for (const r of rows.slice(0, top)) L.push(`| \`${r.file}\` | ${r.e} | ${r.w} | ${weight(r)} | ${Math.round(weight(r) / Math.max(1, total) * 100)}% |`);
@@ -24443,14 +24513,20 @@ function hotspots(path, top = 10, maxFiles = 1500) {
   L.push("", "## Findings by rule", "", "| Rule | Severity | Count | Files | How to fix |", "|---|---|---:|---:|---|");
   [...rules3.entries()].sort((a, b) => b[1].n * (b[1].sev === "error" ? 3 : 1) - a[1].n * (a[1].sev === "error" ? 3 : 1)).slice(0, 15).forEach(([rule, r]) => L.push(`| \`${rule}\` | ${r.sev} | ${r.n} | ${r.files.size} | ${FIX_HINT[rule] ?? "Run `review` on the file for the rule text."} |`));
   L.push("", "Next: run `review` on the worst file, or `convert` for mechanical fixes.");
-  return L.join("\n");
+  return { data, text: L.join("\n") };
 }
 function routes(path, maxFiles = 1500) {
+  return routesRun(path, maxFiles).text;
+}
+function routesRun(path, maxFiles = 1500) {
   const root = requireRoot(path);
   const appDir = [join7(root, "src", "app"), join7(root, "app")].find(exists);
-  if (!appDir) return `# Routes: ${root.split("/").pop()}
+  if (!appDir) {
+    const msg = "No Next.js App Router folder found (looked for src/app and app). This command supports the App Router only.";
+    return { data: { project: root.split("/").pop(), supported: false, message: msg, routes: [], issues: [] }, text: `# Routes: ${root.split("/").pop()}
 
-No Next.js App Router folder found (looked for src/app and app). This command supports the App Router only.`;
+${msg}` };
+  }
   const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
   const all = walked.files.map(read).join("\n");
   const imported = (file, src) => {
@@ -24497,7 +24573,8 @@ No Next.js App Router folder found (looked for src/app and app). This command su
   };
   const mark = (b) => b ? "yes" : "**no**";
   const L = [`# Routes: ${root.split("/").pop()}`, `${pages.length} page(s), ${apis.length} API route(s).`, ""];
-  if (!pages.length) return L.concat("No page files found.").join("\n");
+  const rdata = [];
+  if (!pages.length) return { data: { project: root.split("/").pop(), supported: true, pages: 0, apiRoutes: apis, routes: [], issues: ["No page files found."] }, text: L.concat("No page files found.").join("\n") };
   const rows = [["Route", "Loading", "Error", "Empty state", "invin-uix", "In nav", "Client"]];
   let noLoading = 0, noError = 0, noEmpty = 0, noNav = 0, dynamic = 0;
   for (const p of pages) {
@@ -24505,6 +24582,7 @@ No Next.js App Router folder found (looked for src/app and app). This command su
     const src = own + imported(p.file, own);
     if (/\bredirect\(/.test(own) && own.length < 600) {
       rows.push([`\`${p.route}\``, "n/a", "n/a", "n/a", "0", "n/a", "redirect"]);
+      rdata.push({ route: p.route, file: rel(root, p.file), redirect: true, loading: null, error: null, emptyState: null, invinUixImports: 0, inNav: null, client: false });
       continue;
     }
     const loading = covered(p.dir, /^loading\.(tsx|ts|jsx|js)$/);
@@ -24522,6 +24600,7 @@ No Next.js App Router folder found (looked for src/app and app). This command su
     if (!error2 && isFetching) noError++;
     if (showsList && !hasEmpty) noEmpty++;
     if (!inNav && !isDyn && p.route !== "/login") noNav++;
+    rdata.push({ route: p.route, file: rel(root, p.file), redirect: false, loading: loading || isFetching ? loading : null, error: error2 || isFetching ? error2 : null, emptyState: showsList ? hasEmpty : null, invinUixImports: uix, inNav: isDyn || p.route === "/login" ? null : inNav, client: /^\s*["']use client["']/.test(own) });
     rows.push([`\`${p.route}\``, loading || isFetching ? mark(loading) : "n/a", error2 || isFetching ? mark(error2) : "n/a", showsList ? mark(hasEmpty) : "n/a", String(uix), isDyn || p.route === "/login" ? "n/a" : mark(inNav), /^\s*["']use client["']/.test(own) ? "yes" : "no"]);
   }
   L.push(md(rows.slice(0, 1)), "|---|:-:|:-:|:-:|---:|:-:|:-:|", md(rows.slice(1)));
@@ -24536,9 +24615,13 @@ No Next.js App Router folder found (looked for src/app and app). This command su
   if (issues.length) L.push("## To fix", ...issues.map((i) => `- ${i}`), "", "Use `new-page` for new routes. It creates the page, loading and error files together.");
   else L.push("\u2705 Every route has loading, error and empty handling and is reachable from the navigation.");
   if (apis.length) L.push("", `API routes: ${apis.map((a) => `\`${a}\``).join(", ")}`);
-  return L.join("\n");
+  const data = { project: root.split("/").pop(), supported: true, pages: pages.length, apiRoutes: apis, routes: rdata, summary: { noLoading, noError, noEmptyState: noEmpty, notInNav: noNav, dynamic, hasNotFound: rootNf }, issues };
+  return { data, text: L.join("\n") };
 }
 function tokens(path, maxFiles = 1500) {
+  return tokensRun(path, maxFiles).text;
+}
+function tokensRun(path, maxFiles = 1500) {
   const root = requireRoot(path);
   const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
   const defined = /* @__PURE__ */ new Map();
@@ -24593,9 +24676,20 @@ function tokens(path, maxFiles = 1500) {
   L.push("", "## Defined but never used");
   if (!unused.length) L.push("", "\u2705 None.");
   else L.push("", unused.slice(0, 20).map((t) => `\`${t}\``).join(", ") + (unused.length > 20 ? ` and ${unused.length - 20} more` : ""), "", "Safe to keep if invin-uix or later pages will use them.");
-  return L.join("\n");
+  const data = {
+    project: root.split("/").pop(),
+    defined: defined.size,
+    used: used.size,
+    hardcodedHexTotal: hexTotal,
+    mostUsed: [...used.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 12).map(([token, u]) => ({ token, uses: u.n, files: u.files.size })),
+    hardcodedByFile: [...hex.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([file, count]) => ({ file, count })),
+    usedButUndefined: undef.slice(0, 15).map(([token, u]) => ({ token, uses: u.n, firstSeen: [...u.files][0] })),
+    undefinedChecked: !unverifiable,
+    definedButUnused: unused
+  };
+  return { data, text: L.join("\n") };
 }
-function report(path, save, maxFiles = 1500) {
+function reportRun(path, save, maxFiles = 1500) {
   const root = requireRoot(path);
   const { score, input } = scoreProject(root, maxFiles);
   const errors = input.findings.filter((f) => f.severity === "error").length;
@@ -24607,6 +24701,7 @@ function report(path, save, maxFiles = 1500) {
   } catch {
     history = [];
   }
+  const saveNote = { saved: false };
   const entry = { at: (/* @__PURE__ */ new Date()).toISOString(), total: score.total, grade: score.grade, errors, warnings, files: input.filesScanned };
   const prev = history[history.length - 1];
   const L = [`# Invinsense report: ${root.split("/").pop()}`, `Generated ${entry.at.slice(0, 16).replace("T", " ")} UTC. ${input.filesScanned} files, ${input.lines.toLocaleString("en-US")} lines.`, ""];
@@ -24626,9 +24721,111 @@ function report(path, save, maxFiles = 1500) {
     history.push(entry);
     writeFileSync4(histFile, JSON.stringify(history.slice(-100), null, 2) + "\n");
     writeFileSync4(join7(root, "invinsense-report.md"), L.join("\n") + "\n");
+    saveNote.saved = true;
     L.push("", `Saved \`invinsense-report.md\` and appended to \`.invinsense/history.json\` (commit the history file to share the trend, or add \`.invinsense/\` and \`invinsense-report.md\` to .gitignore).`);
   } else L.push("", "_Not saved. Re-run with save to write `invinsense-report.md` and record this score in the trend._");
-  return L.join("\n");
+  const data = {
+    project: root.split("/").pop(),
+    generatedAt: entry.at,
+    score: { total: score.total, grade: score.grade, verdict: score.verdict, categories: score.categories, wins: score.wins, deltaSincePrevious: prev ? score.total - prev.total : null },
+    filesScanned: input.filesScanned,
+    lines: input.lines,
+    errors,
+    warnings,
+    trend,
+    hotspots: hotspotsRun(root, 8, maxFiles).data,
+    routes: routesRun(root, maxFiles).data,
+    tokens: tokensRun(root, maxFiles).data,
+    components: auditData(root, maxFiles),
+    saved: saveNote.saved
+  };
+  return { data, text: L.join("\n") };
+}
+
+// src/cli.ts
+import { resolve as resolve5 } from "node:path";
+var COMMANDS = ["score", "hotspots", "routes", "tokens", "report", "audit"];
+var HELP = `Invinsense CLI
+
+Usage: node index.mjs <command> [path] [options]
+
+Commands: ${COMMANDS.join(", ")}
+Options:
+  --json            Print JSON only (no prose)
+  --min-score N     score/report: exit with code 1 when the score is below N (for CI)
+  --top N           hotspots: number of files (default 10)
+  --save            report: write invinsense-report.md and record the score in .invinsense/history.json
+  --max-files N     scan limit (default 1500)
+Path defaults to the current directory.`;
+function isCli(argv) {
+  const a = argv[2];
+  return Boolean(a) && (COMMANDS.includes(a) || a === "--help" || a === "-h" || a === "help");
+}
+function runCli(argv) {
+  const args = argv.slice(2);
+  const cmd2 = args[0];
+  if (["help", "--help", "-h"].includes(cmd2)) {
+    console.log(HELP);
+    return 0;
+  }
+  const flag = (n) => args.includes(n);
+  const val = (n) => {
+    const i = args.indexOf(n);
+    return i >= 0 ? args[i + 1] : void 0;
+  };
+  const valueFlags = /* @__PURE__ */ new Set(["--min-score", "--top", "--max-files"]);
+  const positional = args.slice(1).filter((x, i, arr) => !x.startsWith("--") && !valueFlags.has(arr[i - 1] ?? ""));
+  const path = resolve5(positional[0] ?? process.cwd());
+  const json = flag("--json");
+  const maxFiles = Number(val("--max-files") ?? 1500);
+  const min = val("--min-score") !== void 0 ? Number(val("--min-score")) : void 0;
+  const out = (data, text2) => console.log(json ? JSON.stringify(data, null, 2) : text2);
+  try {
+    let total;
+    switch (cmd2) {
+      case "score": {
+        const r = scoreProject(path, maxFiles);
+        total = r.score.total;
+        out(scoreData(path, maxFiles), r.text);
+        break;
+      }
+      case "hotspots": {
+        const r = hotspotsRun(path, Number(val("--top") ?? 10), maxFiles);
+        out(r.data, r.text);
+        break;
+      }
+      case "routes": {
+        const r = routesRun(path, maxFiles);
+        out(r.data, r.text);
+        break;
+      }
+      case "tokens": {
+        const r = tokensRun(path, maxFiles);
+        out(r.data, r.text);
+        break;
+      }
+      case "report": {
+        const r = reportRun(path, flag("--save"), maxFiles);
+        total = r.data.score.total;
+        out(r.data, r.text);
+        break;
+      }
+      case "audit": {
+        const d = auditData(path, maxFiles);
+        out(d, "```json\n" + JSON.stringify(d, null, 2) + "\n```");
+        break;
+      }
+    }
+    if (min !== void 0 && total !== void 0 && total < min) {
+      console.error(`Score ${total} is below the required ${min}.`);
+      return 1;
+    }
+    return 0;
+  } catch (e) {
+    if (json) console.log(JSON.stringify({ error: e.message }));
+    else console.error(`Error: ${e.message}`);
+    return 2;
+  }
 }
 
 // src/reviewer.ts
@@ -25192,6 +25389,8 @@ server.registerTool(
     }
   }
 );
+var fmtArg = external_exports.enum(["markdown", "json"]).default("markdown").describe('"json" returns machine-readable JSON only (no prose). Default markdown.');
+var jsonText = (d) => text(JSON.stringify(d, null, 2));
 server.registerTool(
   "score_invinsense_compliance",
   {
@@ -25199,12 +25398,14 @@ server.registerTool(
     description: "Read-only. Scans a project and returns one compliance score out of 100 with a letter grade (A 90+, B 80+, C 70+, D 60+, F below). Violations 50 points (guide rule findings per 1,000 lines, errors weigh more than warnings), structure 30 points (10 new-module checklist items: tokens, theme, fonts, icons, shell, nav links, four states, tour, reduced motion, charts), components 20 points (no third-party UI libraries, invin-uix adoption). Returns a per-category breakdown and the five changes that would gain the most points. Internal tracking score, not part of the guide itself.",
     inputSchema: {
       path: external_exports.string().min(1).describe("ABSOLUTE path of the project root"),
-      maxFiles: external_exports.number().int().min(1).max(5e3).default(1500)
+      maxFiles: external_exports.number().int().min(1).max(5e3).default(1500),
+      format: fmtArg
     },
     annotations: ReadOnly
   },
   async (a) => {
     try {
+      if (a.format === "json") return jsonText(scoreData(a.path, a.maxFiles));
       return text(scoreProject(a.path, a.maxFiles).text);
     } catch (e) {
       return { ...text(`Could not score: ${e.message}`), isError: true };
@@ -25219,15 +25420,17 @@ server.registerTool(
     inputSchema: {
       path: external_exports.string().min(1).describe("ABSOLUTE path of the project root"),
       detail: external_exports.enum(["summary", "full"]).default("summary").describe("full adds affected files per package and the unused invin-uix components"),
-      maxFiles: external_exports.number().int().min(1).max(5e3).default(2e3)
+      maxFiles: external_exports.number().int().min(1).max(5e3).default(2e3),
+      format: fmtArg
     },
     annotations: ReadOnly
   },
   async (a) => {
     try {
-      const report2 = auditComponents({ path: a.path, detail: a.detail, maxFiles: a.maxFiles });
+      if (a.format === "json") return jsonText(auditData(a.path, a.maxFiles));
+      const report = auditComponents({ path: a.path, detail: a.detail, maxFiles: a.maxFiles });
       const { score } = scoreProject(a.path, a.maxFiles);
-      return text(`${report2}
+      return text(`${report}
 
 ${formatScore(score)}`);
     } catch (e) {
@@ -25235,53 +25438,54 @@ ${formatScore(score)}`);
     }
   }
 );
-var safe = (label, fn) => {
+var pathArg = external_exports.string().min(1).describe("ABSOLUTE path of the project root");
+var safeFmt = (label, format, fn) => {
   try {
-    return text(fn());
+    const r = fn();
+    return format === "json" ? jsonText(r.data) : text(r.text);
   } catch (e) {
-    return { ...text(`Could not ${label}: ${e.message}`), isError: true };
+    return { ...text(format === "json" ? JSON.stringify({ error: e.message }) : `Could not ${label}: ${e.message}`), isError: true };
   }
 };
-var pathArg = external_exports.string().min(1).describe("ABSOLUTE path of the project root");
 server.registerTool(
   "invinsense_hotspots",
   {
     title: "Rank files by Invinsense guide violations",
     description: "Read-only. Ranks the files with the most guide violations (errors weigh 3, warnings 1), shows each file's share of the total, counts findings by rule with a fix hint, and counts invinsense-allow suppressions. Use it to decide which file to fix first.",
-    inputSchema: { path: pathArg, top: external_exports.number().int().min(1).max(50).default(10), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    inputSchema: { path: pathArg, top: external_exports.number().int().min(1).max(50).default(10), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
     annotations: ReadOnly
   },
-  async (a) => safe("rank hotspots", () => hotspots(a.path, a.top, a.maxFiles))
+  async (a) => safeFmt("rank hotspots", a.format, () => hotspotsRun(a.path, a.top, a.maxFiles))
 );
 server.registerTool(
   "invinsense_routes",
   {
     title: "List Next.js routes with state coverage",
     description: "Read-only. Lists every App Router page with whether it has loading and error handling (inherited from parent folders counts), an empty state, invin-uix usage, a navigation link and whether it is a client component. Flags gaps and a missing not-found page. App Router only.",
-    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
     annotations: ReadOnly
   },
-  async (a) => safe("list routes", () => routes(a.path, a.maxFiles))
+  async (a) => safeFmt("list routes", a.format, () => routesRun(a.path, a.maxFiles))
 );
 server.registerTool(
   "invinsense_tokens",
   {
     title: "Show design token usage",
     description: "Read-only. Shows the most used CSS tokens, files with hardcoded hex colours, tokens that are used but never defined (including checks against invin-uix tokens when installed), and tokens defined but never used.",
-    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
     annotations: ReadOnly
   },
-  async (a) => safe("check tokens", () => tokens(a.path, a.maxFiles))
+  async (a) => safeFmt("check tokens", a.format, () => tokensRun(a.path, a.maxFiles))
 );
 server.registerTool(
   "invinsense_report",
   {
     title: "Full Invinsense project report with score trend",
     description: "Builds one markdown report: score and breakdown, trend over previous runs, hotspots, routes, tokens and the component audit. With save=true it writes invinsense-report.md and appends the score to .invinsense/history.json in the project (the only writes; default is read-only).",
-    inputSchema: { path: pathArg, save: external_exports.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500) },
+    inputSchema: { path: pathArg, save: external_exports.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
   },
-  async (a) => safe("build report", () => report(a.path, a.save, a.maxFiles))
+  async (a) => safeFmt("build report", a.format, () => reportRun(a.path, a.save, a.maxFiles))
 );
 server.registerResource(
   "best-practice",
@@ -25444,6 +25648,85 @@ server.registerPrompt(
     }]
   })
 );
+var pathP = external_exports.string().describe("ABSOLUTE path of the project root");
+var JSONABLE = /* @__PURE__ */ new Set(["invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components"]);
+var cmd = (name, title, description, argsSchema, build) => server.registerPrompt(
+  name,
+  { title, description, argsSchema: JSONABLE.has(name) ? { ...argsSchema, json: external_exports.enum(["yes", "no"]).default("no").describe("yes returns machine-readable JSON only") } : argsSchema },
+  (a) => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: build(a) + (a.json === "yes" ? '\n\nOUTPUT MODE: JSON. Call the tool with format="json" and reply with ONLY the raw JSON it returns, inside one ```json code block. No summary, no commentary, no extra text.' : "")
+        }
+      }
+    ]
+  })
+);
+cmd(
+  "invinsense-score",
+  "Score a project (0 to 100)",
+  "Compliance score with grade and the biggest wins",
+  { path: pathP },
+  ({ path }) => `Call \`score_invinsense_compliance\` on ${path}. Show the total with grade, the three category scores and the biggest wins, then name the single next action that gains the most points. Read-only: change nothing.`
+);
+cmd(
+  "invinsense-hotspots",
+  "Hotspots: worst files first",
+  "Rank files by guide violations",
+  { path: pathP, top: external_exports.string().optional().describe("How many files, default 10") },
+  ({ path, top }) => `Call \`invinsense_hotspots\` on ${path}${top ? ` with top=${top}` : ""}. Show the worst-files and findings-by-rule tables, then name the one file to fix first and the command that fixes it. Read-only.`
+);
+cmd(
+  "invinsense-routes",
+  "Routes: state coverage",
+  "List routes with loading, error, empty-state and nav coverage",
+  { path: pathP },
+  ({ path }) => `Call \`invinsense_routes\` on ${path}. Show the route table and the to-fix list. For each gap name the file to add. Read-only until I say go.`
+);
+cmd(
+  "invinsense-tokens",
+  "Tokens: usage and health",
+  "Token usage, hardcoded colours, undefined and unused tokens",
+  { path: pathP },
+  ({ path }) => `Call \`invinsense_tokens\` on ${path}. Show the result. If there are hardcoded colours offer \`convert_to_invinsense\`; if tokens are used but undefined, say where and propose the definition. Never invent token namespaces. Read-only.`
+);
+cmd(
+  "invinsense-report",
+  "Full report with trend",
+  "Score, trend, hotspots, routes, tokens and component audit",
+  { path: pathP, save: external_exports.enum(["yes", "no"]).default("no").describe("yes writes invinsense-report.md and records the score in .invinsense/history.json") },
+  ({ path, save }) => `Call \`invinsense_report\` on ${path} with save=${save === "yes"}. Lead with the score and trend, then summarise the three biggest problems in plain words.${save === "yes" ? " Tell me which two files were written." : ""}`
+);
+cmd(
+  "invinsense-audit-components",
+  "Audit invin-uix vs third-party",
+  "Which components come from invin-uix, local code or third-party libraries",
+  { path: pathP },
+  ({ path }) => `Call \`audit_ui_components\` on ${path} (detail=full). Summarise the invin-uix share, the third-party UI libraries with the invin-uix replacement for each, and local duplicates. Read-only.`
+);
+cmd(
+  "invinsense-new-page",
+  "Add a page / route",
+  "Add a list, dashboard, detail, form or blank page to an Invinsense Next.js project",
+  {
+    projectDir: pathP,
+    route: external_exports.string().describe("Route, e.g. reports or settings/users"),
+    kind: external_exports.enum(["list", "dashboard", "detail", "form", "blank"]).default("list"),
+    title: external_exports.string().optional()
+  },
+  ({ projectDir, route, kind, title }) => `Call \`add_invinsense_page\` for ${projectDir}, route "${route}", kind ${kind}${title ? `, title "${title}"` : ""}, with dryRun=true first and show the file list and nav change. Then run it for real, and run \`review_invinsense_ui\` on the new files.`
+);
+cmd(
+  "invinsense-review",
+  "Review UI code against the guide",
+  "Review a folder or file against the Module UI Guide v2.0 and React/Next.js rules",
+  { path: external_exports.string().describe("ABSOLUTE path of a file or folder") },
+  ({ path }) => `Review ${path}. For each source file run \`review_invinsense_ui\` (and \`review_code\` for TSX/JSX), group findings by severity, fix every error, and for a folder also call \`score_invinsense_compliance\` and report the score.`
+);
+if (isCli(process.argv)) process.exit(runCli(process.argv));
 var transport = new StdioServerTransport();
 await server.connect(transport);
 console.error("react-nextjs-best-practices MCP server running on stdio");

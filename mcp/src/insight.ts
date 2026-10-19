@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { auditComponents } from "./audit.js";
+import { auditComponents, auditData } from "./audit.js";
 import { rel, walkSources, STYLE_EXT, IGNORE_DIRS } from "./fsutil.js";
 import { reviewInvinsense } from "./invinsense-reviewer.js";
 import { scoreProject, WEIGHTS } from "./score.js";
@@ -39,6 +39,10 @@ const md = (rows: string[][]) => rows.map((r) => `| ${r.join(" | ")} |`).join("\
 // ───────────── hotspots ─────────────
 
 export function hotspots(path: string, top = 10, maxFiles = 1500): string {
+  return hotspotsRun(path, top, maxFiles).text;
+}
+
+export function hotspotsRun(path: string, top = 10, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
   const walked = walkSources(root, { maxFiles, maxBytes: 1_500_000 });
   type Row = { file: string; lines: number; e: number; w: number; i: number };
@@ -70,10 +74,24 @@ export function hotspots(path: string, top = 10, maxFiles = 1500): string {
   rows.sort((a, b) => weight(b) - weight(a) || b.e - a.e);
   const total = rows.reduce((n, r) => n + weight(r), 0);
 
+  const share = (n: number) => Math.round((n / Math.max(1, total)) * 100);
+  const data = {
+    project: root.split("/").pop(),
+    filesScanned: walked.files.length,
+    lines: totalLines,
+    filesWithFindings: rows.length,
+    suppressions: suppressed,
+    worstFiles: rows.slice(0, top).map((r) => ({ file: r.file, errors: r.e, warnings: r.w, weighted: weight(r), sharePercent: share(weight(r)) })),
+    top3SharePercent: share(rows.slice(0, 3).reduce((n, r) => n + weight(r), 0)),
+    byRule: [...rules.entries()]
+      .sort((a, b) => b[1].n * (b[1].sev === "error" ? 3 : 1) - a[1].n * (a[1].sev === "error" ? 3 : 1))
+      .slice(0, 15)
+      .map(([rule, r]) => ({ rule, severity: r.sev, count: r.n, files: r.files.size, fix: FIX_HINT[rule] ?? null })),
+  };
   const L: string[] = [`# Hotspots: ${root.split("/").pop()}`, `Scanned ${walked.files.length} files, ${totalLines.toLocaleString("en-US")} lines. ${rows.length} file(s) have findings. ${suppressed} line(s) carry \`invinsense-allow\`.`, ""];
   if (!rows.length) {
     L.push("✅ No findings in any file.");
-    return L.join("\n");
+    return { data, text: L.join("\n") };
   }
   L.push(`## Worst files (top ${Math.min(top, rows.length)} of ${rows.length})`, "", "| File | Errors | Warnings | Weighted | Share of total |", "|---|---:|---:|---:|---:|");
   for (const r of rows.slice(0, top)) L.push(`| \`${r.file}\` | ${r.e} | ${r.w} | ${weight(r)} | ${Math.round((weight(r) / Math.max(1, total)) * 100)}% |`);
@@ -85,15 +103,22 @@ export function hotspots(path: string, top = 10, maxFiles = 1500): string {
     .slice(0, 15)
     .forEach(([rule, r]) => L.push(`| \`${rule}\` | ${r.sev} | ${r.n} | ${r.files.size} | ${FIX_HINT[rule] ?? "Run `review` on the file for the rule text."} |`));
   L.push("", "Next: run `review` on the worst file, or `convert` for mechanical fixes.");
-  return L.join("\n");
+  return { data, text: L.join("\n") };
 }
 
 // ───────────── routes ─────────────
 
 export function routes(path: string, maxFiles = 1500): string {
+  return routesRun(path, maxFiles).text;
+}
+
+export function routesRun(path: string, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
   const appDir = [join(root, "src", "app"), join(root, "app")].find(exists);
-  if (!appDir) return `# Routes: ${root.split("/").pop()}\n\nNo Next.js App Router folder found (looked for src/app and app). This command supports the App Router only.`;
+  if (!appDir) {
+    const msg = "No Next.js App Router folder found (looked for src/app and app). This command supports the App Router only.";
+    return { data: { project: root.split("/").pop(), supported: false, message: msg, routes: [], issues: [] }, text: `# Routes: ${root.split("/").pop()}\n\n${msg}` };
+  }
 
   const walked = walkSources(root, { maxFiles, maxBytes: 1_500_000 });
   const all = walked.files.map(read).join("\n");
@@ -141,7 +166,8 @@ export function routes(path: string, maxFiles = 1500): string {
   };
   const mark = (b: boolean) => (b ? "yes" : "**no**");
   const L: string[] = [`# Routes: ${root.split("/").pop()}`, `${pages.length} page(s), ${apis.length} API route(s).`, ""];
-  if (!pages.length) return L.concat("No page files found.").join("\n");
+  const rdata: Record<string, unknown>[] = [];
+  if (!pages.length) return { data: { project: root.split("/").pop(), supported: true, pages: 0, apiRoutes: apis, routes: [], issues: ["No page files found."] }, text: L.concat("No page files found.").join("\n") };
 
   const rows: string[][] = [["Route", "Loading", "Error", "Empty state", "invin-uix", "In nav", "Client"]];
   let noLoading = 0, noError = 0, noEmpty = 0, noNav = 0, dynamic = 0;
@@ -150,6 +176,7 @@ export function routes(path: string, maxFiles = 1500): string {
     const src = own + imported(p.file, own);
     if (/\bredirect\(/.test(own) && own.length < 600) {
       rows.push([`\`${p.route}\``, "n/a", "n/a", "n/a", "0", "n/a", "redirect"]);
+      rdata.push({ route: p.route, file: rel(root, p.file), redirect: true, loading: null, error: null, emptyState: null, invinUixImports: 0, inNav: null, client: false });
       continue;
     }
     const loading = covered(p.dir, /^loading\.(tsx|ts|jsx|js)$/);
@@ -168,6 +195,7 @@ export function routes(path: string, maxFiles = 1500): string {
     if (!error && isFetching) noError++;
     if (showsList && !hasEmpty) noEmpty++;
     if (!inNav && !isDyn && p.route !== "/login") noNav++;
+    rdata.push({ route: p.route, file: rel(root, p.file), redirect: false, loading: loading || isFetching ? loading : null, error: error || isFetching ? error : null, emptyState: showsList ? hasEmpty : null, invinUixImports: uix, inNav: isDyn || p.route === "/login" ? null : inNav, client: /^\s*["']use client["']/.test(own) });
     rows.push([`\`${p.route}\``, loading || isFetching ? mark(loading) : "n/a", error || isFetching ? mark(error) : "n/a", showsList ? mark(hasEmpty) : "n/a", String(uix), isDyn || p.route === "/login" ? "n/a" : mark(inNav), /^\s*["']use client["']/.test(own) ? "yes" : "no"]);
   }
   L.push(md(rows.slice(0, 1)), "|---|:-:|:-:|:-:|---:|:-:|:-:|", md(rows.slice(1)));
@@ -182,12 +210,17 @@ export function routes(path: string, maxFiles = 1500): string {
   if (issues.length) L.push("## To fix", ...issues.map((i) => `- ${i}`), "", "Use `new-page` for new routes. It creates the page, loading and error files together.");
   else L.push("✅ Every route has loading, error and empty handling and is reachable from the navigation.");
   if (apis.length) L.push("", `API routes: ${apis.map((a) => `\`${a}\``).join(", ")}`);
-  return L.join("\n");
+  const data = { project: root.split("/").pop(), supported: true, pages: pages.length, apiRoutes: apis, routes: rdata, summary: { noLoading, noError, noEmptyState: noEmpty, notInNav: noNav, dynamic, hasNotFound: rootNf }, issues };
+  return { data, text: L.join("\n") };
 }
 
 // ───────────── tokens ─────────────
 
 export function tokens(path: string, maxFiles = 1500): string {
+  return tokensRun(path, maxFiles).text;
+}
+
+export function tokensRun(path: string, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
   const walked = walkSources(root, { maxFiles, maxBytes: 1_500_000 });
   const defined = new Map<string, string>(); // token -> file
@@ -242,7 +275,18 @@ export function tokens(path: string, maxFiles = 1500): string {
   L.push("", "## Defined but never used");
   if (!unused.length) L.push("", "✅ None.");
   else L.push("", unused.slice(0, 20).map((t) => `\`${t}\``).join(", ") + (unused.length > 20 ? ` and ${unused.length - 20} more` : ""), "", "Safe to keep if invin-uix or later pages will use them.");
-  return L.join("\n");
+  const data = {
+    project: root.split("/").pop(),
+    defined: defined.size,
+    used: used.size,
+    hardcodedHexTotal: hexTotal,
+    mostUsed: [...used.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 12).map(([token, u]) => ({ token, uses: u.n, files: u.files.size })),
+    hardcodedByFile: [...hex.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([file, count]) => ({ file, count })),
+    usedButUndefined: undef.slice(0, 15).map(([token, u]) => ({ token, uses: u.n, firstSeen: [...u.files][0] })),
+    undefinedChecked: !unverifiable,
+    definedButUnused: unused,
+  };
+  return { data, text: L.join("\n") };
 }
 
 // ───────────── report ─────────────
@@ -250,6 +294,10 @@ export function tokens(path: string, maxFiles = 1500): string {
 interface HistoryEntry { at: string; total: number; grade: string; errors: number; warnings: number; files: number }
 
 export function report(path: string, save: boolean, maxFiles = 1500): string {
+  return reportRun(path, save, maxFiles).text;
+}
+
+export function reportRun(path: string, save: boolean, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
   const { score, input } = scoreProject(root, maxFiles);
   const errors = input.findings.filter((f) => f.severity === "error").length;
@@ -262,6 +310,7 @@ export function report(path: string, save: boolean, maxFiles = 1500): string {
   } catch {
     history = [];
   }
+  const saveNote = { saved: false };
   const entry: HistoryEntry = { at: new Date().toISOString(), total: score.total, grade: score.grade, errors, warnings, files: input.filesScanned };
   const prev = history[history.length - 1];
 
@@ -285,7 +334,23 @@ export function report(path: string, save: boolean, maxFiles = 1500): string {
     history.push(entry);
     writeFileSync(histFile, JSON.stringify(history.slice(-100), null, 2) + "\n");
     writeFileSync(join(root, "invinsense-report.md"), L.join("\n") + "\n");
+    saveNote.saved = true;
     L.push("", `Saved \`invinsense-report.md\` and appended to \`.invinsense/history.json\` (commit the history file to share the trend, or add \`.invinsense/\` and \`invinsense-report.md\` to .gitignore).`);
   } else L.push("", "_Not saved. Re-run with save to write `invinsense-report.md` and record this score in the trend._");
-  return L.join("\n");
+  const data = {
+    project: root.split("/").pop(),
+    generatedAt: entry.at,
+    score: { total: score.total, grade: score.grade, verdict: score.verdict, categories: score.categories, wins: score.wins, deltaSincePrevious: prev ? score.total - prev.total : null },
+    filesScanned: input.filesScanned,
+    lines: input.lines,
+    errors,
+    warnings,
+    trend,
+    hotspots: hotspotsRun(root, 8, maxFiles).data,
+    routes: routesRun(root, maxFiles).data,
+    tokens: tokensRun(root, maxFiles).data,
+    components: auditData(root, maxFiles),
+    saved: saveNote.saved,
+  };
+  return { data, text: L.join("\n") };
 }

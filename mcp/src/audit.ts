@@ -260,3 +260,44 @@ export function auditComponents(o: AuditOptions): string {
   steps.forEach((s, i) => L.push(`${i + 1}. ${s}`));
   return L.join("\n");
 }
+
+/** Structured version of auditComponents, for --json output. */
+export function auditData(root: string, maxFiles = 2000) {
+  if (!existsSync(root)) throw new Error(`Path does not exist: ${root}`);
+  const { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles } = collectComponents(root, maxFiles);
+  const sum = (it: Iterable<{ uses: number }>) => [...it].reduce((n, a) => n + a.uses, 0);
+  const uixUses = sum(uix.values());
+  const thirdUi = [...third.entries()].filter(([, a]) => a.uiLike);
+  const thirdUiUses = sum(thirdUi.map(([, a]) => a));
+  const total = uixUses + local.uses + thirdUiUses;
+  const share = (n: number) => (total === 0 ? 0 : Math.round((n / total) * 100));
+  const avail = availableUix(root);
+  const used = new Set([...uix.keys()].map((k) => k.replace(/^invin-uix\/ui\//, "")));
+  const dupes: { file: string; invinUix: string }[] = [];
+  if (avail) {
+    for (const f of localComponentFiles) {
+      const stem = kebab(basename(f).replace(/\.(tsx|jsx)$/, ""));
+      const match = avail.find((a) => a === stem || a.endsWith(`/${stem}`));
+      if (match) dupes.push({ file: rel(root, f), invinUix: `invin-uix/ui/${match}` });
+    }
+  }
+  return {
+    project: basename(root),
+    filesScanned: files.length,
+    truncated: Boolean(walked.truncated),
+    invinUixDeclared: Boolean(declared["invin-uix"]),
+    usages: { invinUix: uixUses, local: local.uses, thirdPartyUi: thirdUiUses, total },
+    sharePercent: { invinUix: share(uixUses), local: share(local.uses), thirdPartyUi: share(thirdUiUses) },
+    icons: { phosphorUsages: iconsUses.uses, files: iconsUses.files.size },
+    invinUixEntryPoints: [...uix.entries()].sort((x, y) => y[1].uses - x[1].uses).map(([entry, a]) => ({ entry, components: [...a.names], usages: a.uses, files: a.files.size })),
+    filesUsingInvinUix: filesWithUix.size,
+    thirdPartyUi: thirdUi.sort((x, y) => y[1].uses - x[1].uses).map(([name, a]) => {
+      const lib = UI_LIBS.find((l) => l.re.test(name));
+      return { package: name, version: declared[name] ?? null, usages: a.uses, files: a.files.size, kind: lib?.kind ?? "UI component", replaceWith: lib?.hint ?? "Check whether invin-uix has an equivalent." };
+    }),
+    otherThirdParty: [...third.entries()].filter(([, a]) => !a.uiLike).map(([name, a]) => ({ package: name, files: a.files.size })),
+    possibleDuplicates: dupes,
+    invinUixAvailable: avail ? avail.length : null,
+    invinUixUnused: avail ? avail.filter((a) => !used.has(a)) : null,
+  };
+}

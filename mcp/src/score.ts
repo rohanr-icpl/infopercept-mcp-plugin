@@ -202,3 +202,22 @@ export function scoreProject(path: string, maxFiles = 1500): { score: Score; inp
   const text = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, "", formatScore(score)].join("\n");
   return { score, input, text };
 }
+
+/** Structured score, for --json output. */
+export function scoreData(path: string, maxFiles = 1500) {
+  const { score, input } = scoreProject(path, maxFiles);
+  const count = (s: string) => input.findings.filter((f) => f.severity === s).length;
+  return {
+    project: resolve(path).split("/").pop(),
+    total: score.total,
+    grade: score.grade,
+    verdict: score.verdict,
+    categories: score.categories,
+    wins: score.wins,
+    filesScanned: input.filesScanned,
+    lines: input.lines,
+    findings: { errors: count("error"), warnings: count("warning"), info: count("info") },
+    gaps: input.gaps,
+    components: input.components,
+  };
+}

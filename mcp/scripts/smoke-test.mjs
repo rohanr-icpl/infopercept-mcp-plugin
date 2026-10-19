@@ -33,7 +33,10 @@ const read = await client.readResource({ uri: "bestpractice://react-effects" });
 assert.ok(read.contents[0].text.includes("effect"));
 
 const prompts = await client.listPrompts();
-assert.equal(prompts.prompts.length, 5);
+assert.equal(prompts.prompts.length, 13);
+for (const n of ["invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components", "invinsense-new-page", "invinsense-review"]) assert.ok(prompts.prompts.some((p) => p.name === n), `missing prompt ${n}`);
+const pr = await client.getPrompt({ name: "invinsense-score", arguments: { path: "/tmp/x" } });
+assert.ok(pr.messages[0].content.text.includes("score_invinsense_compliance") && pr.messages[0].content.text.includes("/tmp/x"));
 
 const badUi = `.badge { font-size: 10px; color: #ff0000; font-family: Arial; transition: all 200ms ease-in; }
 .card { border-left: 4px solid var(--accent); background: linear-gradient(red, blue); }
@@ -174,6 +177,25 @@ const rp = (await client.callTool({ name: "invinsense_report", arguments: { path
 assert.ok(rp.includes("## Score") && rp.includes("Hotspots") && fs.existsSync(path.join(legacy, "invinsense-report.md")) && fs.existsSync(path.join(legacy, ".invinsense", "history.json")), rp);
 const rp2 = (await client.callTool({ name: "invinsense_report", arguments: { path: legacy } })).content[0].text;
 assert.ok(rp2.includes("## Trend"), "second run must show a trend");
+// --json / format: "json" returns pure, parseable JSON
+const J = async (name, args) => JSON.parse((await client.callTool({ name, arguments: { path: legacy, format: "json", ...args } })).content[0].text);
+const js = await J("score_invinsense_compliance");
+assert.ok(typeof js.total === "number" && js.grade && Array.isArray(js.categories) && js.findings && typeof js.findings.errors === "number", "score json");
+const jh = await J("invinsense_hotspots");
+assert.ok(Array.isArray(jh.worstFiles) && Array.isArray(jh.byRule) && typeof jh.filesScanned === "number", "hotspots json");
+const jr = await J("invinsense_routes");
+assert.ok(Array.isArray(jr.routes) && Array.isArray(jr.issues), "routes json");
+const jt = await J("invinsense_tokens");
+assert.ok(Array.isArray(jt.mostUsed) && Array.isArray(jt.usedButUndefined), "tokens json");
+const ja = await J("audit_ui_components");
+assert.ok(ja.usages && Array.isArray(ja.thirdPartyUi), "audit json");
+const jp = await J("invinsense_report");
+assert.ok(jp.score.total === js.total && jp.hotspots && jp.routes && jp.tokens && jp.components && Array.isArray(jp.trend), "report json");
+const jbad = await client.callTool({ name: "invinsense_tokens", arguments: { path: "/nope/missing", format: "json" } });
+assert.ok(jbad.isError && JSON.parse(jbad.content[0].text).error, "json error shape");
+const jprompt = await client.getPrompt({ name: "invinsense-score", arguments: { path: legacy, json: "yes" } });
+assert.ok(jprompt.messages[0].content.text.includes('format="json"'), "prompt json mode");
+
 fs.rmSync(tmp, { recursive: true, force: true });
 
 const scaffold = await client.callTool({ name: "scaffold_component", arguments: { name: "UserCard", kind: "client" } });

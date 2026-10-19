@@ -7,9 +7,10 @@ import { reviewInvinsense } from "./invinsense-reviewer.js";
 import { scaffoldProject } from "./project.js";
 import { convertProject, ALL_FIXES, type FixId } from "./convert.js";
 import { addPage } from "./page.js";
-import { auditComponents } from "./audit.js";
-import { scoreProject, formatScore } from "./score.js";
-import { hotspots, routes, tokens, report } from "./insight.js";
+import { auditComponents, auditData } from "./audit.js";
+import { scoreProject, formatScore, scoreData } from "./score.js";
+import { hotspotsRun, routesRun, tokensRun, reportRun } from "./insight.js";
+import { isCli, runCli } from "./cli.js";
 import { reviewCode } from "./reviewer.js";
 import { componentTemplate, testTemplate, featureStructure } from "./scaffold.js";
 
@@ -309,6 +310,9 @@ server.registerTool(
   },
 );
 
+const fmtArg = z.enum(["markdown", "json"]).default("markdown").describe('"json" returns machine-readable JSON only (no prose). Default markdown.');
+const jsonText = (d: unknown) => text(JSON.stringify(d, null, 2));
+
 server.registerTool(
   "score_invinsense_compliance",
   {
@@ -318,11 +322,13 @@ server.registerTool(
     inputSchema: {
       path: z.string().min(1).describe("ABSOLUTE path of the project root"),
       maxFiles: z.number().int().min(1).max(5000).default(1500),
+      format: fmtArg,
     },
     annotations: ReadOnly,
   },
   async (a) => {
     try {
+      if (a.format === "json") return jsonText(scoreData(a.path, a.maxFiles));
       return text(scoreProject(a.path, a.maxFiles).text);
     } catch (e) {
       return { ...text(`Could not score: ${(e as Error).message}`), isError: true };
@@ -340,11 +346,13 @@ server.registerTool(
       path: z.string().min(1).describe("ABSOLUTE path of the project root"),
       detail: z.enum(["summary", "full"]).default("summary").describe("full adds affected files per package and the unused invin-uix components"),
       maxFiles: z.number().int().min(1).max(5000).default(2000),
+      format: fmtArg,
     },
     annotations: ReadOnly,
   },
   async (a) => {
     try {
+      if (a.format === "json") return jsonText(auditData(a.path, a.maxFiles));
       const report = auditComponents({ path: a.path, detail: a.detail, maxFiles: a.maxFiles });
       const { score } = scoreProject(a.path, a.maxFiles);
       return text(`${report}\n\n${formatScore(score)}`);
@@ -362,16 +370,24 @@ const safe = (label: string, fn: () => string) => {
   }
 };
 const pathArg = z.string().min(1).describe("ABSOLUTE path of the project root");
+const safeFmt = (label: string, format: string, fn: () => { data: unknown; text: string }) => {
+  try {
+    const r = fn();
+    return format === "json" ? jsonText(r.data) : text(r.text);
+  } catch (e) {
+    return { ...text(format === "json" ? JSON.stringify({ error: (e as Error).message }) : `Could not ${label}: ${(e as Error).message}`), isError: true };
+  }
+};
 
 server.registerTool(
   "invinsense_hotspots",
   {
     title: "Rank files by Invinsense guide violations",
     description: "Read-only. Ranks the files with the most guide violations (errors weigh 3, warnings 1), shows each file's share of the total, counts findings by rule with a fix hint, and counts invinsense-allow suppressions. Use it to decide which file to fix first.",
-    inputSchema: { path: pathArg, top: z.number().int().min(1).max(50).default(10), maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    inputSchema: { path: pathArg, top: z.number().int().min(1).max(50).default(10), maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
     annotations: ReadOnly,
   },
-  async (a) => safe("rank hotspots", () => hotspots(a.path, a.top, a.maxFiles)),
+  async (a) => safeFmt("rank hotspots", a.format, () => hotspotsRun(a.path, a.top, a.maxFiles)),
 );
 
 server.registerTool(
@@ -379,10 +395,10 @@ server.registerTool(
   {
     title: "List Next.js routes with state coverage",
     description: "Read-only. Lists every App Router page with whether it has loading and error handling (inherited from parent folders counts), an empty state, invin-uix usage, a navigation link and whether it is a client component. Flags gaps and a missing not-found page. App Router only.",
-    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
     annotations: ReadOnly,
   },
-  async (a) => safe("list routes", () => routes(a.path, a.maxFiles)),
+  async (a) => safeFmt("list routes", a.format, () => routesRun(a.path, a.maxFiles)),
 );
 
 server.registerTool(
@@ -390,10 +406,10 @@ server.registerTool(
   {
     title: "Show design token usage",
     description: "Read-only. Shows the most used CSS tokens, files with hardcoded hex colours, tokens that are used but never defined (including checks against invin-uix tokens when installed), and tokens defined but never used.",
-    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
     annotations: ReadOnly,
   },
-  async (a) => safe("check tokens", () => tokens(a.path, a.maxFiles)),
+  async (a) => safeFmt("check tokens", a.format, () => tokensRun(a.path, a.maxFiles)),
 );
 
 server.registerTool(
@@ -401,10 +417,10 @@ server.registerTool(
   {
     title: "Full Invinsense project report with score trend",
     description: "Builds one markdown report: score and breakdown, trend over previous runs, hotspots, routes, tokens and the component audit. With save=true it writes invinsense-report.md and appends the score to .invinsense/history.json in the project (the only writes; default is read-only).",
-    inputSchema: { path: pathArg, save: z.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: z.number().int().min(1).max(5000).default(1500) },
+    inputSchema: { path: pathArg, save: z.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
-  async (a) => safe("build report", () => report(a.path, a.save, a.maxFiles)),
+  async (a) => safeFmt("build report", a.format, () => reportRun(a.path, a.save, a.maxFiles)),
 );
 
 // ───────────────────────── Resources ─────────────────────────
@@ -551,7 +567,48 @@ server.registerPrompt(
   }),
 );
 
+// Command-style prompts: these show up in the prompt menu of clients without plugin slash commands
+// (Claude desktop app, Cursor, Kiro...), so the commands work there too.
+const pathP = z.string().describe("ABSOLUTE path of the project root");
+const JSONABLE = new Set(["invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components"]);
+const cmd = (name: string, title: string, description: string, argsSchema: Record<string, z.ZodTypeAny>, build: (a: any) => string) =>
+  server.registerPrompt(
+    name,
+    { title, description, argsSchema: JSONABLE.has(name) ? { ...argsSchema, json: z.enum(["yes", "no"]).default("no").describe("yes returns machine-readable JSON only") } : argsSchema },
+    (a: any) => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: build(a) + (a.json === "yes" ? "\n\nOUTPUT MODE: JSON. Call the tool with format=\"json\" and reply with ONLY the raw JSON it returns, inside one ```json code block. No summary, no commentary, no extra text." : ""),
+          },
+        },
+      ],
+    }),
+  );
+
+cmd("invinsense-score", "Score a project (0 to 100)", "Compliance score with grade and the biggest wins", { path: pathP },
+  ({ path }) => `Call \`score_invinsense_compliance\` on ${path}. Show the total with grade, the three category scores and the biggest wins, then name the single next action that gains the most points. Read-only: change nothing.`);
+cmd("invinsense-hotspots", "Hotspots: worst files first", "Rank files by guide violations", { path: pathP, top: z.string().optional().describe("How many files, default 10") },
+  ({ path, top }) => `Call \`invinsense_hotspots\` on ${path}${top ? ` with top=${top}` : ""}. Show the worst-files and findings-by-rule tables, then name the one file to fix first and the command that fixes it. Read-only.`);
+cmd("invinsense-routes", "Routes: state coverage", "List routes with loading, error, empty-state and nav coverage", { path: pathP },
+  ({ path }) => `Call \`invinsense_routes\` on ${path}. Show the route table and the to-fix list. For each gap name the file to add. Read-only until I say go.`);
+cmd("invinsense-tokens", "Tokens: usage and health", "Token usage, hardcoded colours, undefined and unused tokens", { path: pathP },
+  ({ path }) => `Call \`invinsense_tokens\` on ${path}. Show the result. If there are hardcoded colours offer \`convert_to_invinsense\`; if tokens are used but undefined, say where and propose the definition. Never invent token namespaces. Read-only.`);
+cmd("invinsense-report", "Full report with trend", "Score, trend, hotspots, routes, tokens and component audit", { path: pathP, save: z.enum(["yes", "no"]).default("no").describe("yes writes invinsense-report.md and records the score in .invinsense/history.json") },
+  ({ path, save }) => `Call \`invinsense_report\` on ${path} with save=${save === "yes"}. Lead with the score and trend, then summarise the three biggest problems in plain words.${save === "yes" ? " Tell me which two files were written." : ""}`);
+cmd("invinsense-audit-components", "Audit invin-uix vs third-party", "Which components come from invin-uix, local code or third-party libraries", { path: pathP },
+  ({ path }) => `Call \`audit_ui_components\` on ${path} (detail=full). Summarise the invin-uix share, the third-party UI libraries with the invin-uix replacement for each, and local duplicates. Read-only.`);
+cmd("invinsense-new-page", "Add a page / route", "Add a list, dashboard, detail, form or blank page to an Invinsense Next.js project", {
+    projectDir: pathP, route: z.string().describe("Route, e.g. reports or settings/users"), kind: z.enum(["list", "dashboard", "detail", "form", "blank"]).default("list"), title: z.string().optional() },
+  ({ projectDir, route, kind, title }) => `Call \`add_invinsense_page\` for ${projectDir}, route "${route}", kind ${kind}${title ? `, title "${title}"` : ""}, with dryRun=true first and show the file list and nav change. Then run it for real, and run \`review_invinsense_ui\` on the new files.`);
+cmd("invinsense-review", "Review UI code against the guide", "Review a folder or file against the Module UI Guide v2.0 and React/Next.js rules", { path: z.string().describe("ABSOLUTE path of a file or folder") },
+  ({ path }) => `Review ${path}. For each source file run \`review_invinsense_ui\` (and \`review_code\` for TSX/JSX), group findings by severity, fix every error, and for a folder also call \`score_invinsense_compliance\` and report the score.`);
+
 // ───────────────────────── Start ─────────────────────────
+
+if (isCli(process.argv)) process.exit(runCli(process.argv));
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

@@ -10,7 +10,7 @@
 #   ./install.sh --uninstall         remove it from the selected agents
 #   ./install.sh --dry-run           show what would change, write nothing
 #
-# Agents: claude (Claude Code CLI) | desktop (Claude desktop app) | kiro | cursor | all (default: all that are installed)
+# Agents: claude (Claude Code CLI) | desktop (Claude desktop app) | kiro (IDE + CLI) | cursor (editor + CLI) | all (default: all that are installed)
 set -euo pipefail
 
 REPO_URL="${INVINSENSE_REPO_URL:-https://github.com/rohanr-icpl/infopercept-mcp-plugin.git}"
@@ -137,9 +137,8 @@ if want desktop; then
     else
       json_set "$DCFG" mcpServers add && ok "MCP server added to $DCFG"
       say "  Fully quit Claude (Cmd+Q) and reopen it. The Invinsense tools appear under the tools/connectors menu."
-      say "  Slash commands: in Claude > Settings > Plugins > Add, add this marketplace:"
-      say "    $REPO_URL"
-      say "  then install 'invinsense-frontend' from Discover."
+      say "  Commands: open the + menu in a chat and pick the invinsense prompts (invinsense-score, invinsense-report,"
+      say "  invinsense-hotspots, invinsense-routes, ...), or just ask in plain words."
     fi
   else
     skip "Claude desktop app not found (use 'desktop' explicitly to force)"
@@ -150,7 +149,7 @@ fi
 if want kiro; then
   say "Kiro"
   if [ "$PROJECT" = 1 ]; then KCFG="$PWD/.kiro/settings/mcp.json"; KSTEER="$PWD/.kiro/steering"; else KCFG="$HOME/.kiro/settings/mcp.json"; KSTEER="$HOME/.kiro/steering"; fi
-  if [ "$PROJECT" = 1 ] || [ -d "$HOME/.kiro" ] || command -v kiro >/dev/null 2>&1 || explicit kiro; then
+  if [ "$PROJECT" = 1 ] || [ -d "$HOME/.kiro" ] || command -v kiro >/dev/null 2>&1 || command -v kiro-cli >/dev/null 2>&1 || [ -d "/Applications/Kiro.app" ] || explicit kiro; then
     if [ "$UNINSTALL" = 1 ]; then
       [ -f "$KCFG" ] && json_set "$KCFG" mcpServers remove && ok "removed from $KCFG" || skip "nothing to remove"
       run rm -f "$KSTEER/invinsense-ui.md"
@@ -163,7 +162,7 @@ if want kiro; then
         fi
         ok "steering rule written to $KSTEER/invinsense-ui.md"
       fi
-      say "  Restart Kiro (or reconnect the MCP server) and ask: \"List the Invinsense tools\"."
+      say "  Applies to Kiro IDE and Kiro CLI (same config file). Restart Kiro, or start a new CLI chat, and ask: \"List the Invinsense tools\"."
     fi
   else
     skip "Kiro not found (use 'kiro' explicitly to force)"
@@ -174,7 +173,7 @@ fi
 if want cursor; then
   say "Cursor"
   if [ "$PROJECT" = 1 ]; then CCFG="$PWD/.cursor/mcp.json"; CRULES="$PWD/.cursor/rules"; else CCFG="$HOME/.cursor/mcp.json"; CRULES=""; fi
-  if [ "$PROJECT" = 1 ] || [ -d "$HOME/.cursor" ] || command -v cursor >/dev/null 2>&1 || [ -d "/Applications/Cursor.app" ] || explicit cursor; then
+  if [ "$PROJECT" = 1 ] || [ -d "$HOME/.cursor" ] || command -v cursor >/dev/null 2>&1 || command -v cursor-agent >/dev/null 2>&1 || [ -d "/Applications/Cursor.app" ] || explicit cursor; then
     if [ "$UNINSTALL" = 1 ]; then
       [ -f "$CCFG" ] && json_set "$CCFG" mcpServers remove && ok "removed from $CCFG" || skip "nothing to remove"
       [ -n "$CRULES" ] && run rm -f "$CRULES/invinsense-ui.mdc"
@@ -187,7 +186,7 @@ if want cursor; then
         fi
         ok "project rule written to $CRULES/invinsense-ui.mdc"
       fi
-      say "  Restart Cursor, then check Settings > MCP: 'invinsense' should show a green dot."
+      say "  Applies to the Cursor editor and the Cursor CLI (cursor-agent shares this file). Restart Cursor; check Settings > MCP for a green dot, or run: cursor-agent mcp list"
     fi
   else
     skip "Cursor not found (use 'cursor' explicitly to force)"

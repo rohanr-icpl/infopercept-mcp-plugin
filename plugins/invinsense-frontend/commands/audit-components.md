@@ -1,6 +1,6 @@
 ---
 description: Report which UI components come from invin-uix, local code, or third-party libraries
-argument-hint: [path] [full]
+argument-hint: [path] [full] [--json]
 ---
 
 Audit where the UI components in a project come from using the Invinsense MCP server's `audit_ui_components` tool.
@@ -15,3 +15,5 @@ Steps:
 5. Finish with a short prioritised plan: which third-party package to replace first and why (largest usage, or icon and chart libraries that break guide laws). Offer to do the first replacement.
 
 This is read-only. Do not change any files unless the user asks.
+
+**`--json`**: if the user input contains `--json`, remove that flag from the path, call `audit_ui_components` with `format: "json"`, and reply with ONLY the raw JSON it returns in one ```json block. No summary, no commentary, no next-step offer.

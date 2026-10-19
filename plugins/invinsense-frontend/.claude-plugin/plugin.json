@@ -1,7 +1,15 @@
 {
   "name": "invinsense-frontend",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Invinsense Module UI Guide v2.0 and React/Next.js best practices. Scaffold new modules, convert existing products to the guideline, and review UI code.",
-  "author": { "name": "Infopercept" },
-  "keywords": ["invinsense", "react", "nextjs", "ui-guide", "mcp"]
+  "author": {
+    "name": "Infopercept"
+  },
+  "keywords": [
+    "invinsense",
+    "react",
+    "nextjs",
+    "ui-guide",
+    "mcp"
+  ]
 }
