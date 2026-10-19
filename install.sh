@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Invinsense Frontend plugin installer for Claude Code, Kiro and Cursor.
+# Invinsense Frontend plugin installer for Claude Code, the Claude desktop app, Kiro and Cursor.
 # Works on macOS and Linux (bash 3.2+). Needs: git, node 18+.
 #
 # Usage:
@@ -10,13 +10,15 @@
 #   ./install.sh --uninstall         remove it from the selected agents
 #   ./install.sh --dry-run           show what would change, write nothing
 #
-# Agents: claude | kiro | cursor | all (default: all that are installed)
+# Agents: claude (Claude Code CLI) | desktop (Claude desktop app) | kiro | cursor | all (default: all that are installed)
 set -euo pipefail
 
 REPO_URL="${INVINSENSE_REPO_URL:-https://github.com/rohanr-icpl/infopercept-mcp-plugin.git}"
 MARKETPLACE="infopercept-tools"
 PLUGIN="invinsense-frontend"
 SERVER_NAME="invinsense"
+# GUI apps start with a minimal PATH, so register node by absolute path.
+NODE_BIN="$(command -v node)"
 CACHE_DIR="${INVINSENSE_HOME:-$HOME/.infopercept}/infopercept-mcp-plugin"
 
 AGENTS=""; DRY=0; UNINSTALL=0; UPDATE=0; PROJECT=0
@@ -30,7 +32,7 @@ run()  { if [ "$DRY" = 1 ]; then printf '  dry   %s\n' "$*"; else "$@"; fi; }
 
 for a in "$@"; do
   case "$a" in
-    claude|kiro|cursor) AGENTS="$AGENTS $a" ;;
+    claude|desktop|kiro|cursor) AGENTS="$AGENTS $a" ;;
     all) AGENTS="" ;;
     --dry-run) DRY=1 ;;
     --uninstall) UNINSTALL=1 ;;
@@ -82,9 +84,9 @@ json_set() {
   local file="$1" root="$2" mode="$3"
   if [ "$DRY" = 1 ]; then printf '  dry   %s %s in %s\n' "$mode" "$SERVER_NAME" "$file"; return 0; fi
   mkdir -p "$(dirname "$file")"
-  FILE="$file" ROOT="$root" MODE="$mode" SERVER="$SERVER" NAME="$SERVER_NAME" node -e '
+  FILE="$file" ROOT="$root" MODE="$mode" SERVER="$SERVER" NAME="$SERVER_NAME" NODE_BIN="$NODE_BIN" node -e '
     const fs = require("fs");
-    const { FILE, ROOT, MODE, SERVER, NAME } = process.env;
+    const { FILE, ROOT, MODE, SERVER, NAME, NODE_BIN } = process.env;
     let cfg = {};
     if (fs.existsSync(FILE)) {
       const raw = fs.readFileSync(FILE, "utf8");
@@ -92,7 +94,7 @@ json_set() {
       fs.copyFileSync(FILE, FILE + ".bak");
     }
     cfg[ROOT] = cfg[ROOT] || {};
-    if (MODE === "add") cfg[ROOT][NAME] = { command: "node", args: [SERVER] };
+    if (MODE === "add") cfg[ROOT][NAME] = { command: NODE_BIN, args: [SERVER] };
     else delete cfg[ROOT][NAME];
     fs.writeFileSync(FILE, JSON.stringify(cfg, null, 2) + "\n");
   '
@@ -118,6 +120,29 @@ if want claude; then
     fi
   else
     if explicit claude; then warn "claude CLI not found. Install Claude Code first."; else skip "claude CLI not found"; fi
+  fi
+fi
+
+# ---------- Claude desktop app ----------
+if want desktop; then
+  say "Claude desktop app"
+  case "$(uname -s)" in
+    Darwin) DCFG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"; DAPP="/Applications/Claude.app" ;;
+    Linux)  DCFG="${XDG_CONFIG_HOME:-$HOME/.config}/Claude/claude_desktop_config.json"; DAPP="" ;;
+    *)      DCFG="${APPDATA:-$HOME/AppData/Roaming}/Claude/claude_desktop_config.json"; DAPP="" ;;
+  esac
+  if [ -d "$(dirname "$DCFG")" ] || { [ -n "$DAPP" ] && [ -d "$DAPP" ]; } || explicit desktop; then
+    if [ "$UNINSTALL" = 1 ]; then
+      [ -f "$DCFG" ] && json_set "$DCFG" mcpServers remove && ok "removed from $DCFG" || skip "nothing to remove"
+    else
+      json_set "$DCFG" mcpServers add && ok "MCP server added to $DCFG"
+      say "  Fully quit Claude (Cmd+Q) and reopen it. The Invinsense tools appear under the tools/connectors menu."
+      say "  Slash commands: in Claude > Settings > Plugins > Add, add this marketplace:"
+      say "    $REPO_URL"
+      say "  then install 'invinsense-frontend' from Discover."
+    fi
+  else
+    skip "Claude desktop app not found (use 'desktop' explicitly to force)"
   fi
 fi
 
