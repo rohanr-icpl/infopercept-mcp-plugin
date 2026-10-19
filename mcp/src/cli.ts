@@ -17,7 +17,7 @@ Options:
   --min-score N     score/report: exit with code 1 when the score is below N (for CI)
   --top N           hotspots: number of files (default 10)
   --save            report: write invinsense-report.md and record the score in .invinsense/history.json
-  --max-files N     scan limit (default 1500)
+  --max-files N     scan limit (default: no limit)
 Path defaults to the current directory.`;
 
 export function isCli(argv: string[]): boolean {
@@ -41,7 +41,7 @@ export function runCli(argv: string[]): number {
   const positional = args.slice(1).filter((x, i, arr) => !x.startsWith("--") && !valueFlags.has(arr[i - 1] ?? ""));
   const path = resolve(positional[0] ?? process.cwd());
   const json = flag("--json");
-  const maxFiles = Number(val("--max-files") ?? 1500);
+  const maxFiles = Number(val("--max-files") ?? 10_000_000);
   const min = val("--min-score") !== undefined ? Number(val("--min-score")) : undefined;
   const out = (data: unknown, text: string) => console.log(json ? JSON.stringify(data, null, 2) : text);
   try {

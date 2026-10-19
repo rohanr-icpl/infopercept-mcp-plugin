@@ -170,10 +170,10 @@ export function componentStats(c: ReturnType<typeof collectComponents>): Compone
 }
 
 /** Score a project straight from disk. */
-export function scoreProject(path: string, maxFiles = 1500): { score: Score; input: ScoreInput; text: string } {
+export function scoreProject(path: string, maxFiles = 10_000_000): { score: Score; input: ScoreInput; text: string } {
   const root = resolve(path);
   if (!existsSync(root)) throw new Error(`Path does not exist: ${root}`);
-  const walked = walkSources(root, { maxFiles, maxBytes: 1_500_000 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const findings: ScoreFinding[] = [];
   let lines = 0;
   const texts: string[] = [];
@@ -204,7 +204,7 @@ export function scoreProject(path: string, maxFiles = 1500): { score: Score; inp
 }
 
 /** Structured score, for --json output. */
-export function scoreData(path: string, maxFiles = 1500) {
+export function scoreData(path: string, maxFiles = 10_000_000) {
   const { score, input } = scoreProject(path, maxFiles);
   const count = (s: string) => input.findings.filter((f) => f.severity === s).length;
   return {

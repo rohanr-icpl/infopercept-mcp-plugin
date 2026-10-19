@@ -38,13 +38,13 @@ const md = (rows: string[][]) => rows.map((r) => `| ${r.join(" | ")} |`).join("\
 
 // ───────────── hotspots ─────────────
 
-export function hotspots(path: string, top = 10, maxFiles = 1500): string {
+export function hotspots(path: string, top = 10, maxFiles = 10_000_000): string {
   return hotspotsRun(path, top, maxFiles).text;
 }
 
-export function hotspotsRun(path: string, top = 10, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
+export function hotspotsRun(path: string, top = 10, maxFiles = 10_000_000): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
-  const walked = walkSources(root, { maxFiles, maxBytes: 1_500_000 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   type Row = { file: string; lines: number; e: number; w: number; i: number };
   const rows: Row[] = [];
   const rules = new Map<string, { sev: string; n: number; files: Set<string> }>();
@@ -108,11 +108,11 @@ export function hotspotsRun(path: string, top = 10, maxFiles = 1500): { data: Re
 
 // ───────────── routes ─────────────
 
-export function routes(path: string, maxFiles = 1500): string {
+export function routes(path: string, maxFiles = 10_000_000): string {
   return routesRun(path, maxFiles).text;
 }
 
-export function routesRun(path: string, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
+export function routesRun(path: string, maxFiles = 10_000_000): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
   const appDir = [join(root, "src", "app"), join(root, "app")].find(exists);
   if (!appDir) {
@@ -120,7 +120,7 @@ export function routesRun(path: string, maxFiles = 1500): { data: Record<string,
     return { data: { project: root.split("/").pop(), supported: false, message: msg, routes: [], issues: [] }, text: `# Routes: ${root.split("/").pop()}\n\n${msg}` };
   }
 
-  const walked = walkSources(root, { maxFiles, maxBytes: 1_500_000 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const all = walked.files.map(read).join("\n");
   const imported = (file: string, src: string) => {
     let extra = "";
@@ -216,13 +216,13 @@ export function routesRun(path: string, maxFiles = 1500): { data: Record<string,
 
 // ───────────── tokens ─────────────
 
-export function tokens(path: string, maxFiles = 1500): string {
+export function tokens(path: string, maxFiles = 10_000_000): string {
   return tokensRun(path, maxFiles).text;
 }
 
-export function tokensRun(path: string, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
+export function tokensRun(path: string, maxFiles = 10_000_000): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
-  const walked = walkSources(root, { maxFiles, maxBytes: 1_500_000 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const defined = new Map<string, string>(); // token -> file
   const used = new Map<string, { n: number; files: Set<string> }>();
   const withFallback = new Set<string>(); // var(--x, fallback) is safe even when --x is set elsewhere (inline style, JS)
@@ -293,11 +293,11 @@ export function tokensRun(path: string, maxFiles = 1500): { data: Record<string,
 
 interface HistoryEntry { at: string; total: number; grade: string; errors: number; warnings: number; files: number }
 
-export function report(path: string, save: boolean, maxFiles = 1500): string {
+export function report(path: string, save: boolean, maxFiles = 10_000_000): string {
   return reportRun(path, save, maxFiles).text;
 }
 
-export function reportRun(path: string, save: boolean, maxFiles = 1500): { data: Record<string, unknown>; text: string } {
+export function reportRun(path: string, save: boolean, maxFiles = 10_000_000): { data: Record<string, unknown>; text: string } {
   const root = requireRoot(path);
   const { score, input } = scoreProject(root, maxFiles);
   const errors = input.findings.filter((f) => f.severity === "error").length;

@@ -14,6 +14,7 @@ import { isCli, runCli } from "./cli.js";
 import { reviewCode } from "./reviewer.js";
 import { componentTemplate, testTemplate, featureStructure } from "./scaffold.js";
 
+const NO_LIMIT = 10_000_000;
 const server = new McpServer({ name: "react-nextjs-best-practices", version: "1.0.0" });
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
@@ -266,7 +267,7 @@ server.registerTool(
       colorMap: z.record(z.string(), z.string()).default({}).describe("Map your existing colours to tokens, e.g. {\"#1a73e8\": \"var(--accent)\", \"#ffffff\": \"var(--card)\"}"),
       writeReport: z.boolean().default(true).describe("When writing, also save INVINSENSE_MIGRATION.md in the project"),
       force: z.boolean().default(false).describe("Allow writing when the git working tree has uncommitted changes"),
-      maxFiles: z.number().int().min(1).max(5000).default(1500),
+      maxFiles: z.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
@@ -321,7 +322,7 @@ server.registerTool(
       "Read-only. Scans a project and returns one compliance score out of 100 with a letter grade (A 90+, B 80+, C 70+, D 60+, F below). Violations 50 points (guide rule findings per 1,000 lines, errors weigh more than warnings), structure 30 points (10 new-module checklist items: tokens, theme, fonts, icons, shell, nav links, four states, tour, reduced motion, charts), components 20 points (no third-party UI libraries, invin-uix adoption). Returns a per-category breakdown and the five changes that would gain the most points. Internal tracking score, not part of the guide itself.",
     inputSchema: {
       path: z.string().min(1).describe("ABSOLUTE path of the project root"),
-      maxFiles: z.number().int().min(1).max(5000).default(1500),
+      maxFiles: z.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"),
       format: fmtArg,
     },
     annotations: ReadOnly,
@@ -345,7 +346,7 @@ server.registerTool(
     inputSchema: {
       path: z.string().min(1).describe("ABSOLUTE path of the project root"),
       detail: z.enum(["summary", "full"]).default("summary").describe("full adds affected files per package and the unused invin-uix components"),
-      maxFiles: z.number().int().min(1).max(5000).default(2000),
+      maxFiles: z.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"),
       format: fmtArg,
     },
     annotations: ReadOnly,
@@ -384,7 +385,7 @@ server.registerTool(
   {
     title: "Rank files by Invinsense guide violations",
     description: "Read-only. Ranks the files with the most guide violations (errors weigh 3, warnings 1), shows each file's share of the total, counts findings by rule with a fix hint, and counts invinsense-allow suppressions. Use it to decide which file to fix first.",
-    inputSchema: { path: pathArg, top: z.number().int().min(1).max(50).default(10), maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, top: z.number().int().min(1).max(50).default(10), maxFiles: z.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: ReadOnly,
   },
   async (a) => safeFmt("rank hotspots", a.format, () => hotspotsRun(a.path, a.top, a.maxFiles)),
@@ -395,7 +396,7 @@ server.registerTool(
   {
     title: "List Next.js routes with state coverage",
     description: "Read-only. Lists every App Router page with whether it has loading and error handling (inherited from parent folders counts), an empty state, invin-uix usage, a navigation link and whether it is a client component. Flags gaps and a missing not-found page. App Router only.",
-    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: ReadOnly,
   },
   async (a) => safeFmt("list routes", a.format, () => routesRun(a.path, a.maxFiles)),
@@ -406,7 +407,7 @@ server.registerTool(
   {
     title: "Show design token usage",
     description: "Read-only. Shows the most used CSS tokens, files with hardcoded hex colours, tokens that are used but never defined (including checks against invin-uix tokens when installed), and tokens defined but never used.",
-    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, maxFiles: z.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: ReadOnly,
   },
   async (a) => safeFmt("check tokens", a.format, () => tokensRun(a.path, a.maxFiles)),
@@ -417,7 +418,7 @@ server.registerTool(
   {
     title: "Full Invinsense project report with score trend",
     description: "Builds one markdown report: score and breakdown, trend over previous runs, hotspots, routes, tokens and the component audit. With save=true it writes invinsense-report.md and appends the score to .invinsense/history.json in the project (the only writes; default is read-only).",
-    inputSchema: { path: pathArg, save: z.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: z.number().int().min(1).max(5000).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, save: z.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: z.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
   async (a) => safeFmt("build report", a.format, () => reportRun(a.path, a.save, a.maxFiles)),

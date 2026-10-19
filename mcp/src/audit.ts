@@ -105,7 +105,7 @@ const kebab = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCas
 const pct = (n: number, d: number) => (d === 0 ? "0%" : `${Math.round((n / d) * 100)}%`);
 
 export function collectComponents(root: string, maxFiles: number) {
-  const walked = walkSources(root, { maxFiles, maxBytes: 1_000_000 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const pkgPath = join(root, "package.json");
   const pkg = existsSync(pkgPath)
     ? (JSON.parse(readFileSync(pkgPath, "utf8")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> })
@@ -262,7 +262,7 @@ export function auditComponents(o: AuditOptions): string {
 }
 
 /** Structured version of auditComponents, for --json output. */
-export function auditData(root: string, maxFiles = 2000) {
+export function auditData(root: string, maxFiles = 10_000_000) {
   if (!existsSync(root)) throw new Error(`Path does not exist: ${root}`);
   const { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles } = collectComponents(root, maxFiles);
   const sum = (it: Iterable<{ uses: number }>) => [...it].reduce((n, a) => n + a.uses, 0);

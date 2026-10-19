@@ -139,7 +139,7 @@ export function convertProject(o: ConvertOptions): ConvertReport {
   const fam = families.find((f) => f.id === o.family);
   if (!fam) throw new Error(`Unknown family "${o.family}"`);
   const { stack, deps } = detectStack(root);
-  const walked = walkSources(root, { maxFiles: o.maxFiles, maxBytes: 1_500_000 });
+  const walked = walkSources(root, { maxFiles: o.maxFiles, maxBytes: Infinity });
   const fixes = new Set<FixId>(o.fixes.length ? o.fixes : ALL_FIXES);
   const willWrite = o.mode === "apply" && !o.dryRun;
 

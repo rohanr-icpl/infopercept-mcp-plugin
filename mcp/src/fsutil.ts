@@ -43,7 +43,7 @@ export function walkSources(root: string, opts: WalkOptions): { files: string[];
       } catch {
         continue;
       }
-      if (size > opts.maxBytes) {
+      if (Number.isFinite(opts.maxBytes) && size > opts.maxBytes && opts.maxBytes > 0) {  // callers pass 0 or Infinity for no size limit
         skipped++;
         continue;
       }

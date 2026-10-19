@@ -22943,7 +22943,7 @@ function walkSources(root, opts) {
       } catch {
         continue;
       }
-      if (size > opts.maxBytes) {
+      if (Number.isFinite(opts.maxBytes) && size > opts.maxBytes && opts.maxBytes > 0) {
         skipped++;
         continue;
       }
@@ -23206,7 +23206,7 @@ function availableUix(root) {
 var kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 var pct = (n, d) => d === 0 ? "0%" : `${Math.round(n / d * 100)}%`;
 function collectComponents(root, maxFiles) {
-  const walked = walkSources(root, { maxFiles, maxBytes: 1e6 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const pkgPath = join3(root, "package.json");
   const pkg = existsSync3(pkgPath) ? JSON.parse(readFileSync2(pkgPath, "utf8")) : {};
   const declared = { ...pkg.devDependencies, ...pkg.dependencies };
@@ -23341,7 +23341,7 @@ function auditComponents(o) {
   steps.forEach((s, i) => L.push(`${i + 1}. ${s}`));
   return L.join("\n");
 }
-function auditData(root, maxFiles = 2e3) {
+function auditData(root, maxFiles = 1e7) {
   if (!existsSync3(root)) throw new Error(`Path does not exist: ${root}`);
   const { declared, files, walked, uix, third, local, iconsUses, filesWithUix, localComponentFiles } = collectComponents(root, maxFiles);
   const sum = (it) => [...it].reduce((n, a) => n + a.uses, 0);
@@ -23485,10 +23485,10 @@ function componentStats(c) {
     invinUixDeclared: Boolean(c.declared["invin-uix"])
   };
 }
-function scoreProject(path, maxFiles = 1500) {
+function scoreProject(path, maxFiles = 1e7) {
   const root = resolve2(path);
   if (!existsSync4(root)) throw new Error(`Path does not exist: ${root}`);
-  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const findings = [];
   let lines = 0;
   const texts = [];
@@ -23516,7 +23516,7 @@ function scoreProject(path, maxFiles = 1500) {
   const text2 = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, "", formatScore(score)].join("\n");
   return { score, input, text: text2 };
 }
-function scoreData(path, maxFiles = 1500) {
+function scoreData(path, maxFiles = 1e7) {
   const { score, input } = scoreProject(path, maxFiles);
   const count = (s) => input.findings.filter((f) => f.severity === s).length;
   return {
@@ -23646,7 +23646,7 @@ function convertProject(o) {
   const fam = families.find((f) => f.id === o.family);
   if (!fam) throw new Error(`Unknown family "${o.family}"`);
   const { stack, deps } = detectStack(root);
-  const walked = walkSources(root, { maxFiles: o.maxFiles, maxBytes: 15e5 });
+  const walked = walkSources(root, { maxFiles: o.maxFiles, maxBytes: Infinity });
   const fixes = new Set(o.fixes.length ? o.fixes : ALL_FIXES);
   const willWrite = o.mode === "apply" && !o.dryRun;
   if (willWrite) {
@@ -24457,12 +24457,12 @@ var requireRoot = (path) => {
   return root;
 };
 var md = (rows) => rows.map((r) => `| ${r.join(" | ")} |`).join("\n");
-function hotspots(path, top = 10, maxFiles = 1500) {
+function hotspots(path, top = 10, maxFiles = 1e7) {
   return hotspotsRun(path, top, maxFiles).text;
 }
-function hotspotsRun(path, top = 10, maxFiles = 1500) {
+function hotspotsRun(path, top = 10, maxFiles = 1e7) {
   const root = requireRoot(path);
-  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const rows = [];
   const rules3 = /* @__PURE__ */ new Map();
   let suppressed = 0;
@@ -24515,10 +24515,10 @@ function hotspotsRun(path, top = 10, maxFiles = 1500) {
   L.push("", "Next: run `review` on the worst file, or `convert` for mechanical fixes.");
   return { data, text: L.join("\n") };
 }
-function routes(path, maxFiles = 1500) {
+function routes(path, maxFiles = 1e7) {
   return routesRun(path, maxFiles).text;
 }
-function routesRun(path, maxFiles = 1500) {
+function routesRun(path, maxFiles = 1e7) {
   const root = requireRoot(path);
   const appDir = [join7(root, "src", "app"), join7(root, "app")].find(exists);
   if (!appDir) {
@@ -24527,7 +24527,7 @@ function routesRun(path, maxFiles = 1500) {
 
 ${msg}` };
   }
-  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const all = walked.files.map(read).join("\n");
   const imported = (file, src) => {
     let extra = "";
@@ -24618,12 +24618,12 @@ ${msg}` };
   const data = { project: root.split("/").pop(), supported: true, pages: pages.length, apiRoutes: apis, routes: rdata, summary: { noLoading, noError, noEmptyState: noEmpty, notInNav: noNav, dynamic, hasNotFound: rootNf }, issues };
   return { data, text: L.join("\n") };
 }
-function tokens(path, maxFiles = 1500) {
+function tokens(path, maxFiles = 1e7) {
   return tokensRun(path, maxFiles).text;
 }
-function tokensRun(path, maxFiles = 1500) {
+function tokensRun(path, maxFiles = 1e7) {
   const root = requireRoot(path);
-  const walked = walkSources(root, { maxFiles, maxBytes: 15e5 });
+  const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
   const defined = /* @__PURE__ */ new Map();
   const used = /* @__PURE__ */ new Map();
   const withFallback = /* @__PURE__ */ new Set();
@@ -24689,7 +24689,7 @@ function tokensRun(path, maxFiles = 1500) {
   };
   return { data, text: L.join("\n") };
 }
-function reportRun(path, save, maxFiles = 1500) {
+function reportRun(path, save, maxFiles = 1e7) {
   const root = requireRoot(path);
   const { score, input } = scoreProject(root, maxFiles);
   const errors = input.findings.filter((f) => f.severity === "error").length;
@@ -24755,7 +24755,7 @@ Options:
   --min-score N     score/report: exit with code 1 when the score is below N (for CI)
   --top N           hotspots: number of files (default 10)
   --save            report: write invinsense-report.md and record the score in .invinsense/history.json
-  --max-files N     scan limit (default 1500)
+  --max-files N     scan limit (default: no limit)
 Path defaults to the current directory.`;
 function isCli(argv) {
   const a = argv[2];
@@ -24777,7 +24777,7 @@ function runCli(argv) {
   const positional = args.slice(1).filter((x, i, arr) => !x.startsWith("--") && !valueFlags.has(arr[i - 1] ?? ""));
   const path = resolve5(positional[0] ?? process.cwd());
   const json = flag("--json");
-  const maxFiles = Number(val("--max-files") ?? 1500);
+  const maxFiles = Number(val("--max-files") ?? 1e7);
   const min = val("--min-score") !== void 0 ? Number(val("--min-score")) : void 0;
   const out = (data, text2) => console.log(json ? JSON.stringify(data, null, 2) : text2);
   try {
@@ -25096,6 +25096,7 @@ function featureStructure(feature, framework) {
 }
 
 // src/index.ts
+var NO_LIMIT = 1e7;
 var server = new McpServer({ name: "react-nextjs-best-practices", version: "1.0.0" });
 var text = (t) => ({ content: [{ type: "text", text: t }] });
 var CategoryEnum = external_exports.enum(categories);
@@ -25349,7 +25350,7 @@ server.registerTool(
       colorMap: external_exports.record(external_exports.string(), external_exports.string()).default({}).describe('Map your existing colours to tokens, e.g. {"#1a73e8": "var(--accent)", "#ffffff": "var(--card)"}'),
       writeReport: external_exports.boolean().default(true).describe("When writing, also save INVINSENSE_MIGRATION.md in the project"),
       force: external_exports.boolean().default(false).describe("Allow writing when the git working tree has uncommitted changes"),
-      maxFiles: external_exports.number().int().min(1).max(5e3).default(1500)
+      maxFiles: external_exports.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)")
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   },
@@ -25398,7 +25399,7 @@ server.registerTool(
     description: "Read-only. Scans a project and returns one compliance score out of 100 with a letter grade (A 90+, B 80+, C 70+, D 60+, F below). Violations 50 points (guide rule findings per 1,000 lines, errors weigh more than warnings), structure 30 points (10 new-module checklist items: tokens, theme, fonts, icons, shell, nav links, four states, tour, reduced motion, charts), components 20 points (no third-party UI libraries, invin-uix adoption). Returns a per-category breakdown and the five changes that would gain the most points. Internal tracking score, not part of the guide itself.",
     inputSchema: {
       path: external_exports.string().min(1).describe("ABSOLUTE path of the project root"),
-      maxFiles: external_exports.number().int().min(1).max(5e3).default(1500),
+      maxFiles: external_exports.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"),
       format: fmtArg
     },
     annotations: ReadOnly
@@ -25420,7 +25421,7 @@ server.registerTool(
     inputSchema: {
       path: external_exports.string().min(1).describe("ABSOLUTE path of the project root"),
       detail: external_exports.enum(["summary", "full"]).default("summary").describe("full adds affected files per package and the unused invin-uix components"),
-      maxFiles: external_exports.number().int().min(1).max(5e3).default(2e3),
+      maxFiles: external_exports.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"),
       format: fmtArg
     },
     annotations: ReadOnly
@@ -25452,7 +25453,7 @@ server.registerTool(
   {
     title: "Rank files by Invinsense guide violations",
     description: "Read-only. Ranks the files with the most guide violations (errors weigh 3, warnings 1), shows each file's share of the total, counts findings by rule with a fix hint, and counts invinsense-allow suppressions. Use it to decide which file to fix first.",
-    inputSchema: { path: pathArg, top: external_exports.number().int().min(1).max(50).default(10), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, top: external_exports.number().int().min(1).max(50).default(10), maxFiles: external_exports.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: ReadOnly
   },
   async (a) => safeFmt("rank hotspots", a.format, () => hotspotsRun(a.path, a.top, a.maxFiles))
@@ -25462,7 +25463,7 @@ server.registerTool(
   {
     title: "List Next.js routes with state coverage",
     description: "Read-only. Lists every App Router page with whether it has loading and error handling (inherited from parent folders counts), an empty state, invin-uix usage, a navigation link and whether it is a client component. Flags gaps and a missing not-found page. App Router only.",
-    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: ReadOnly
   },
   async (a) => safeFmt("list routes", a.format, () => routesRun(a.path, a.maxFiles))
@@ -25472,7 +25473,7 @@ server.registerTool(
   {
     title: "Show design token usage",
     description: "Read-only. Shows the most used CSS tokens, files with hardcoded hex colours, tokens that are used but never defined (including checks against invin-uix tokens when installed), and tokens defined but never used.",
-    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, maxFiles: external_exports.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: ReadOnly
   },
   async (a) => safeFmt("check tokens", a.format, () => tokensRun(a.path, a.maxFiles))
@@ -25482,7 +25483,7 @@ server.registerTool(
   {
     title: "Full Invinsense project report with score trend",
     description: "Builds one markdown report: score and breakdown, trend over previous runs, hotspots, routes, tokens and the component audit. With save=true it writes invinsense-report.md and appends the score to .invinsense/history.json in the project (the only writes; default is read-only).",
-    inputSchema: { path: pathArg, save: external_exports.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: external_exports.number().int().min(1).max(5e3).default(1500), format: fmtArg },
+    inputSchema: { path: pathArg, save: external_exports.boolean().default(false).describe("Write invinsense-report.md and record this score in .invinsense/history.json"), maxFiles: external_exports.number().int().min(1).default(NO_LIMIT).describe("Max files to scan. Default: no limit (everything except node_modules, build output and minified files)"), format: fmtArg },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
   },
   async (a) => safeFmt("build report", a.format, () => reportRun(a.path, a.save, a.maxFiles))
