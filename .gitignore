@@ -5,3 +5,4 @@ mcp/build/
 *.tgz
 .env*
 *.zip
+*.plugin
