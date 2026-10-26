@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { auditComponents, auditData } from "./audit.js";
-import { rel, walkSources, STYLE_EXT, IGNORE_DIRS } from "./fsutil.js";
+import { rel, walkSources, STYLE_EXT, IGNORE_DIRS, coverageLine } from "./fsutil.js";
 import { reviewInvinsense } from "./invinsense-reviewer.js";
 import { scoreProject, WEIGHTS } from "./score.js";
 
@@ -81,6 +81,7 @@ export function hotspotsRun(path: string, top = 10, maxFiles = 10_000_000): { da
     lines: totalLines,
     filesWithFindings: rows.length,
     suppressions: suppressed,
+    coverage: walked.coverage,
     worstFiles: rows.slice(0, top).map((r) => ({ file: r.file, errors: r.e, warnings: r.w, weighted: weight(r), sharePercent: share(weight(r)) })),
     top3SharePercent: share(rows.slice(0, 3).reduce((n, r) => n + weight(r), 0)),
     byRule: [...rules.entries()]
@@ -88,7 +89,7 @@ export function hotspotsRun(path: string, top = 10, maxFiles = 10_000_000): { da
       .slice(0, 15)
       .map(([rule, r]) => ({ rule, severity: r.sev, count: r.n, files: r.files.size, fix: FIX_HINT[rule] ?? null })),
   };
-  const L: string[] = [`# Hotspots: ${root.split("/").pop()}`, `Scanned ${walked.files.length} files, ${totalLines.toLocaleString("en-US")} lines. ${rows.length} file(s) have findings. ${suppressed} line(s) carry \`invinsense-allow\`.`, ""];
+  const L: string[] = [`# Hotspots: ${root.split("/").pop()}`, `Scanned ${walked.files.length} files, ${totalLines.toLocaleString("en-US")} lines. ${rows.length} file(s) have findings. ${suppressed} line(s) carry \`invinsense-allow\`.`, `Coverage: ${coverageLine(walked.coverage)}.`, ""];
   if (!rows.length) {
     L.push("✅ No findings in any file.");
     return { data, text: L.join("\n") };
@@ -352,5 +353,38 @@ export function reportRun(path: string, save: boolean, maxFiles = 10_000_000): {
     components: auditData(root, maxFiles),
     saved: saveNote.saved,
   };
+  return { data, text: L.join("\n") };
+}
+
+// ───────────── coverage ─────────────
+
+/** Exactly what was read and what was not, so a missing file is never a mystery. */
+export function coverageRun(path: string, list = false, maxFiles = 10_000_000): { data: Record<string, unknown>; text: string } {
+  const root = requireRoot(path);
+  const w = walkSources(root, { maxFiles, maxBytes: Infinity });
+  const c = w.coverage;
+  const byDir = new Map<string, number>();
+  for (const f of w.files) {
+    const d = rel(root, f).split("/").slice(0, 2).join("/");
+    byDir.set(d, (byDir.get(d) ?? 0) + 1);
+  }
+  const folders = [...byDir.entries()].sort((a, b) => b[1] - a[1]);
+  const data = {
+    project: root.split("/").pop(),
+    scanned: c.scanned,
+    byExtension: c.byExtension,
+    skipped: { testFiles: c.skippedTests, minified: c.skippedMinified, declarationFiles: c.skippedDeclarations, oversized: c.skippedOversized },
+    foldersNotEntered: c.ignoredFolders,
+    symlinkedFoldersFollowed: c.symlinksFollowed,
+    truncated: w.truncated,
+    filesByFolder: folders.map(([folder, files]) => ({ folder, files })),
+    ...(list ? { files: w.files.map((f) => rel(root, f)) } : {}),
+  };
+  const L = [`# Scan coverage: ${root.split("/").pop()}`, "", `${coverageLine(c)}.${w.truncated ? " Stopped at the file limit." : ""}`, "", "## Read", "", "| Type | Files |", "|---|---:|", ...Object.entries(c.byExtension).sort((a, b) => b[1] - a[1]).map(([e, n]) => `| ${e} | ${n} |`)];
+  L.push("", "## Not read", "", `- Test and spec files (*.test.*, *.spec.*): ${c.skippedTests}`, `- Minified files (*.min.*): ${c.skippedMinified}`, `- Type declaration files (*.d.ts): ${c.skippedDeclarations}`, `- Oversized files: ${c.skippedOversized}`);
+  L.push(c.ignoredFolders.length ? `- Folders not entered:\n${c.ignoredFolders.map((f) => `  - \`${f}\``).join("\n")}` : "- Folders not entered: none");
+  L.push("", "File types other than css, scss, sass, less, pcss, html, js, jsx, mjs, cjs, ts, tsx, mts, cts, vue, svelte and astro are never read (JSON, Markdown, images).");
+  L.push("", "## Files by folder (top 20)", "", "| Folder | Files |", "|---|---:|", ...folders.slice(0, 20).map(([d, n]) => `| \`${d}\` | ${n} |`));
+  if (list) L.push("", "## Every file read", "", ...w.files.map((f) => `- ${rel(root, f)}`));
   return { data, text: L.join("\n") };
 }

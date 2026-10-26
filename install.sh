@@ -147,7 +147,7 @@ fi
 
 
 # Short commands (/score, /hotspots ...) for Kiro and Cursor. Same wording everywhere; only the folder and front matter differ.
-CMD_TOOLS="score:score_invinsense_compliance hotspots:invinsense_hotspots routes:invinsense_routes tokens:invinsense_tokens report:invinsense_report audit:audit_ui_components"
+CMD_TOOLS="score:score_invinsense_compliance hotspots:invinsense_hotspots routes:invinsense_routes tokens:invinsense_tokens report:invinsense_report audit:audit_ui_components coverage:invinsense_coverage"
 write_cmds() { # dir  front-matter-mode(plain|kiro)  [remove]
   local dir="$1" mode="$2" pair name tool
   for pair in $CMD_TOOLS; do

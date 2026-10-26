@@ -9,7 +9,7 @@ import { convertProject, ALL_FIXES, type FixId } from "./convert.js";
 import { addPage } from "./page.js";
 import { auditComponents, auditData } from "./audit.js";
 import { scoreProject, formatScore, scoreData } from "./score.js";
-import { hotspotsRun, routesRun, tokensRun, reportRun } from "./insight.js";
+import { hotspotsRun, routesRun, tokensRun, reportRun, coverageRun } from "./insight.js";
 import { isCli, runCli } from "./cli.js";
 import { reviewCode } from "./reviewer.js";
 import { componentTemplate, testTemplate, featureStructure } from "./scaffold.js";
@@ -414,6 +414,17 @@ server.registerTool(
 );
 
 server.registerTool(
+  "invinsense_coverage",
+  {
+    title: "Show exactly which files were scanned and which were skipped",
+    description: "Read-only. Lists what the scanner read (by file type and folder), what it skipped and why (test files, minified, .d.ts, build output folders), and which file types it never reads. Use it when someone says files are missing from a scan. list=true prints every file read.",
+    inputSchema: { path: pathArg, list: z.boolean().default(false).describe("Print every file that was read"), maxFiles: z.number().int().min(1).default(NO_LIMIT), format: fmtArg },
+    annotations: ReadOnly,
+  },
+  async (a) => safeFmt("show coverage", a.format, () => coverageRun(a.path, a.list, a.maxFiles)),
+);
+
+server.registerTool(
   "invinsense_report",
   {
     title: "Full Invinsense project report with score trend",
@@ -571,7 +582,7 @@ server.registerPrompt(
 // Command-style prompts: these show up in the prompt menu of clients without plugin slash commands
 // (Claude desktop app, Cursor, Kiro...), so the commands work there too.
 const pathP = z.string().describe("ABSOLUTE path of the project root");
-const JSONABLE = new Set(["invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components"]);
+const JSONABLE = new Set(["invinsense-coverage", "invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components"]);
 const cmd = (name: string, title: string, description: string, argsSchema: Record<string, z.ZodTypeAny>, build: (a: any) => string) =>
   server.registerPrompt(
     name,
@@ -599,6 +610,8 @@ cmd("invinsense-tokens", "Tokens: usage and health", "Token usage, hardcoded col
   ({ path }) => `Call \`invinsense_tokens\` on ${path}. Show the result. If there are hardcoded colours offer \`convert_to_invinsense\`; if tokens are used but undefined, say where and propose the definition. Never invent token namespaces. Read-only.`);
 cmd("invinsense-report", "Full report with trend", "Score, trend, hotspots, routes, tokens and component audit", { path: pathP, save: z.enum(["yes", "no"]).default("no").describe("yes writes invinsense-report.md and records the score in .invinsense/history.json") },
   ({ path, save }) => `Call \`invinsense_report\` on ${path} with save=${save === "yes"}. Lead with the score and trend, then summarise the three biggest problems in plain words.${save === "yes" ? " Tell me which two files were written." : ""}`);
+cmd("invinsense-coverage", "Coverage: what was scanned", "Which files the scanner read and which it skipped, with the reason", { path: pathP },
+  ({ path }) => `Call \`invinsense_coverage\` on ${path}. Show how many files were read by type, what was skipped and why, and the folders not entered. If I name a missing file, tell me which rule excluded it. Read-only.`);
 cmd("invinsense-audit-components", "Audit invin-uix vs third-party", "Which components come from invin-uix, local code or third-party libraries", { path: pathP },
   ({ path }) => `Call \`audit_ui_components\` on ${path} (detail=full). Summarise the invin-uix share, the third-party UI libraries with the invin-uix replacement for each, and local duplicates. Read-only.`);
 cmd("invinsense-new-page", "Add a page / route", "Add a list, dashboard, detail, form or blank page to an Invinsense Next.js project", {

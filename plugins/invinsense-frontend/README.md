@@ -14,7 +14,7 @@ Build Invinsense modules that follow the **Invinsense Module UI Guide v2.0** and
 |---|---|
 | **10 slash commands** | `new-project`, `new-page`, `convert`, `audit-components`, `score`, `hotspots`, `routes`, `tokens`, `report`, `review` |
 | **Skill `invinsense-ui`** | Claude applies the guide on its own whenever you build or edit Invinsense UI, no command needed |
-| **MCP server `invinsense`** | 19 tools, 46 resources and 13 prompts that do the real work (see [Tool reference](#5-tool-reference)) |
+| **MCP server `invinsense`** | 20 tools, 46 resources and 14 prompts that do the real work (see [Tool reference](#5-tool-reference)) |
 
 The commands are thin: they tell Claude which MCP tool to call and in what order. The MCP server does the generating, converting and checking, so results are identical in every agent.
 
@@ -279,6 +279,20 @@ Grades: **A** 90+, **B** 80+, **C** 70+, **D** 60+, **F** below 60.
 
 The score also appears automatically at the top of `convert` (in apply mode as "projected score after fixes, was N") and at the end of `audit-components`, and `review` reports it when you review a folder.
 
+### `/invinsense-frontend:coverage [path] [--list] [--json]`
+
+Shows exactly what the scanner read and what it skipped, so a missing file is never a mystery. `score` and `hotspots` also print a one-line coverage summary.
+
+What is read: `.css .scss .sass .less .pcss .html .js .jsx .mjs .cjs .ts .tsx .mts .cts .vue .svelte .astro`, with no limit on file count, file size or lines. Symlinked folders are followed.
+
+What is not read, and why:
+- `node_modules`, `.git`, `.next`, `.turbo`, caches and editor folders, at any depth.
+- Build output (`dist`, `build`, `out`, `coverage`, `vendor`) at the project or workspace-package root only. A folder called `build` or `out` inside `src/` **is** scanned.
+- Test and spec files (`*.test.*`, `*.spec.*`), minified files and `.d.ts` files.
+- JSON, Markdown, images and any other file type.
+
+If a file you expect is missing, run `coverage --list` and look for it; the report names the rule that excluded it.
+
 ### JSON output: `--json`
 
 Add `--json` to `score`, `hotspots`, `routes`, `tokens`, `report` or `audit-components` and the reply is raw JSON only, no prose. In the desktop app, Kiro and Cursor, set the `json` argument of the matching `invinsense-*` prompt to `yes`, or call the tool with `format: "json"`.
@@ -428,7 +442,7 @@ args = ["/abs/path/to/server/index.mjs"]
 }
 ```
 
-Restart the agent after saving, then ask it to list its MCP tools. You should see 19 tools starting with `list_best_practices`.
+Restart the agent after saving, then ask it to list its MCP tools. You should see 20 tools starting with `list_best_practices`.
 
 ### Commands in other agents: just ask
 

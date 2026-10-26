@@ -1,12 +1,12 @@
 import { resolve } from "node:path";
 import { auditData } from "./audit.js";
-import { hotspotsRun, reportRun, routesRun, tokensRun } from "./insight.js";
+import { coverageRun, hotspotsRun, reportRun, routesRun, tokensRun } from "./insight.js";
 import { scoreData } from "./score.js";
 import { scoreProject } from "./score.js";
 
 /* Command-line mode: `node index.mjs <command> [path] [--json] [--min-score N]`. Same engine as the MCP tools. */
 
-const COMMANDS = ["score", "hotspots", "routes", "tokens", "report", "audit"] as const;
+const COMMANDS = ["score", "hotspots", "routes", "tokens", "report", "audit", "coverage"] as const;
 const HELP = `Invinsense CLI
 
 Usage: node index.mjs <command> [path] [options]
@@ -16,6 +16,7 @@ Options:
   --json            Print JSON only (no prose)
   --min-score N     score/report: exit with code 1 when the score is below N (for CI)
   --top N           hotspots: number of files (default 10)
+  --list            coverage: print every file that was read
   --save            report: write invinsense-report.md and record the score in .invinsense/history.json
   --max-files N     scan limit (default: no limit)
 Path defaults to the current directory.`;
@@ -71,6 +72,11 @@ export function runCli(argv: string[]): number {
       case "report": {
         const r = reportRun(path, flag("--save"), maxFiles);
         total = (r.data.score as { total: number }).total;
+        out(r.data, r.text);
+        break;
+      }
+      case "coverage": {
+        const r = coverageRun(path, flag("--list"), maxFiles);
         out(r.data, r.text);
         break;
       }

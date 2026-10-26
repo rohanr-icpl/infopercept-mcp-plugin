@@ -9,7 +9,7 @@ const client = new Client({ name: "smoke", version: "0.0.0" });
 await client.connect(new StdioClientTransport({ command: "node", args: [process.env.SERVER_ENTRY || "build/index.js"] }));
 
 const tools = (await client.listTools()).tools.map((t) => t.name);
-for (const t of ["list_best_practices", "get_best_practice", "search_best_practices", "review_code", "scaffold_component", "suggest_project_structure", "pre_merge_checklist", "review_invinsense_ui", "get_invinsense_tokens", "invinsense_new_module_checklist", "scaffold_invinsense_project", "convert_to_invinsense", "add_invinsense_page", "audit_ui_components", "score_invinsense_compliance", "invinsense_hotspots", "invinsense_routes", "invinsense_tokens", "invinsense_report"])
+for (const t of ["list_best_practices", "get_best_practice", "search_best_practices", "review_code", "scaffold_component", "suggest_project_structure", "pre_merge_checklist", "review_invinsense_ui", "get_invinsense_tokens", "invinsense_new_module_checklist", "scaffold_invinsense_project", "convert_to_invinsense", "add_invinsense_page", "audit_ui_components", "score_invinsense_compliance", "invinsense_hotspots", "invinsense_routes", "invinsense_tokens", "invinsense_report", "invinsense_coverage"])
   assert.ok(tools.includes(t), `missing tool ${t}`);
 
 const bad = `"use client";
@@ -33,8 +33,8 @@ const read = await client.readResource({ uri: "bestpractice://react-effects" });
 assert.ok(read.contents[0].text.includes("effect"));
 
 const prompts = await client.listPrompts();
-assert.equal(prompts.prompts.length, 13);
-for (const n of ["invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components", "invinsense-new-page", "invinsense-review"]) assert.ok(prompts.prompts.some((p) => p.name === n), `missing prompt ${n}`);
+assert.equal(prompts.prompts.length, 14);
+for (const n of ["invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components", "invinsense-coverage", "invinsense-new-page", "invinsense-review"]) assert.ok(prompts.prompts.some((p) => p.name === n), `missing prompt ${n}`);
 const pr = await client.getPrompt({ name: "invinsense-score", arguments: { path: "/tmp/x" } });
 assert.ok(pr.messages[0].content.text.includes("score_invinsense_compliance") && pr.messages[0].content.text.includes("/tmp/x"));
 
@@ -192,6 +192,10 @@ assert.ok(ja.usages && Array.isArray(ja.thirdPartyUi), "audit json");
 const jp = await J("invinsense_report");
 assert.ok(jp.score.total === js.total && jp.hotspots && jp.routes && jp.tokens && jp.components && Array.isArray(jp.trend), "report json");
 const jbad = await client.callTool({ name: "invinsense_tokens", arguments: { path: "/nope/missing", format: "json" } });
+const jc = await J("invinsense_coverage", { list: true });
+assert.ok(jc.scanned > 0 && Array.isArray(jc.files) && jc.files.length === jc.scanned && jc.skipped && Array.isArray(jc.foldersNotEntered), "coverage json");
+assert.ok(js.coverage && js.coverage.scanned === jc.scanned, "score reports coverage");
+assert.ok(jh.coverage, "hotspots reports coverage");
 assert.ok(jbad.isError && JSON.parse(jbad.content[0].text).error, "json error shape");
 const jprompt = await client.getPrompt({ name: "invinsense-score", arguments: { path: legacy, json: "yes" } });
 assert.ok(jprompt.messages[0].content.text.includes('format="json"'), "prompt json mode");

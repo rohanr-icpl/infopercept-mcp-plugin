@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { collectComponents } from "./audit.js";
 import { structuralGaps, type Gap } from "./gaps.js";
-import { rel, walkSources } from "./fsutil.js";
+import { rel, walkSources, coverageLine, type Coverage } from "./fsutil.js";
 import { reviewInvinsense } from "./invinsense-reviewer.js";
 
 /* Invinsense compliance score (internal; not part of the Module UI Guide).
@@ -170,7 +170,7 @@ export function componentStats(c: ReturnType<typeof collectComponents>): Compone
 }
 
 /** Score a project straight from disk. */
-export function scoreProject(path: string, maxFiles = 10_000_000): { score: Score; input: ScoreInput; text: string } {
+export function scoreProject(path: string, maxFiles = 10_000_000): { score: Score; input: ScoreInput; text: string; coverage: Coverage } {
   const root = resolve(path);
   if (!existsSync(root)) throw new Error(`Path does not exist: ${root}`);
   const walked = walkSources(root, { maxFiles, maxBytes: Infinity });
@@ -199,13 +199,13 @@ export function scoreProject(path: string, maxFiles = 10_000_000): { score: Scor
   const components = componentStats(collectComponents(root, maxFiles));
   const input: ScoreInput = { findings, lines, filesScanned: walked.files.length, gaps, components };
   const score = computeScore(input);
-  const text = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, "", formatScore(score)].join("\n");
-  return { score, input, text };
+  const text = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, `Coverage: ${coverageLine(walked.coverage)}. Run the coverage command to list exactly what was and was not read.`, "", formatScore(score)].join("\n");
+  return { score, input, text, coverage: walked.coverage };
 }
 
 /** Structured score, for --json output. */
 export function scoreData(path: string, maxFiles = 10_000_000) {
-  const { score, input } = scoreProject(path, maxFiles);
+  const { score, input, coverage } = scoreProject(path, maxFiles);
   const count = (s: string) => input.findings.filter((f) => f.severity === s).length;
   return {
     project: resolve(path).split("/").pop(),
@@ -217,6 +217,7 @@ export function scoreData(path: string, maxFiles = 10_000_000) {
     filesScanned: input.filesScanned,
     lines: input.lines,
     findings: { errors: count("error"), warnings: count("warning"), info: count("info") },
+    coverage,
     gaps: input.gaps,
     components: input.components,
   };

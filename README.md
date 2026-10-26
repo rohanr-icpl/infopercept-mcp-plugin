@@ -42,7 +42,7 @@ Needs `git` and `node` 18 or newer. Claude Code gets the full plugin (slash comm
 
 **JSON output.** Add `--json` to `score`, `hotspots`, `routes`, `tokens`, `report` or `audit-components` for raw JSON only (prompts: `json` = `yes`; tools: `format: "json"`). CI without an agent: `node plugins/invinsense-frontend/server/index.mjs score . --json --min-score 85`. Details in the plugin README.
 
-Plus the `invinsense-ui` skill (auto-applies the guide) and 15 MCP tools (`invinsense` server).
+Plus the `invinsense-ui` skill (auto-applies the guide) and 20 MCP tools (`invinsense` server).
 
 ## Maintainers: update the plugin
 

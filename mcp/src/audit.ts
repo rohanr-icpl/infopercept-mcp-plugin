@@ -20,7 +20,7 @@ interface ImportRec {
 }
 
 const BUILTINS = new Set(builtinModules.map((m) => m.replace(/^node:/, "")));
-const SCRIPT_EXT = /\.(tsx?|jsx?|mjs|cjs)$/;
+const SCRIPT_EXT = /\.(tsx?|jsx?|mjs|cjs|mts|cts)$/;
 
 const UI_LIBS: { re: RegExp; kind: string; hint: string }[] = [
   { re: /^(@mui\/|@emotion\/|@chakra-ui\/|antd$|@ant-design\/|@mantine\/|@nextui-org\/|@heroui\/|react-bootstrap|bootstrap$|reactstrap|primereact|semantic-ui|@blueprintjs\/|rsuite|@fluentui\/|@headlessui\/|@radix-ui\/|@tremor\/|daisyui|flowbite)/, kind: "UI kit", hint: "Replace with invin-uix components (Button, Badge, Card, Avatar, Alert, Switch, Separator, Skeleton, DataTable, KpiCard…)." },

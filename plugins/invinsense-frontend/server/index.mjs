@@ -22892,34 +22892,47 @@ import { dirname, isAbsolute, join as join2, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // src/fsutil.ts
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { execFileSync } from "node:child_process";
 var IGNORE_DIRS = /* @__PURE__ */ new Set([
   "node_modules",
   ".git",
   ".next",
-  "dist",
-  "build",
-  "out",
-  "coverage",
   ".turbo",
   ".cache",
   ".vercel",
   ".netlify",
-  ".invinsense-backup",
   ".svelte-kit",
   ".nuxt",
-  "vendor",
-  "__pycache__"
+  ".invinsense-backup",
+  ".idea",
+  ".vscode",
+  "__pycache__",
+  ".parcel-cache",
+  ".yarn",
+  ".pnpm-store"
 ]);
-var SOURCE_EXT = /* @__PURE__ */ new Set([".css", ".scss", ".less", ".html", ".htm", ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"]);
-var STYLE_EXT = /* @__PURE__ */ new Set([".css", ".scss", ".less"]);
+var ROOT_ONLY_IGNORE = /* @__PURE__ */ new Set(["dist", "build", "out", "coverage", "vendor", "storybook-static"]);
+var SOURCE_EXT = /* @__PURE__ */ new Set([".css", ".scss", ".sass", ".less", ".pcss", ".html", ".htm", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".vue", ".svelte", ".astro"]);
+var STYLE_EXT = /* @__PURE__ */ new Set([".css", ".scss", ".sass", ".less", ".pcss"]);
 function walkSources(root, opts) {
   const files = [];
   let skipped = 0;
   let truncated = false;
-  const visit = (dir) => {
+  const seen = /* @__PURE__ */ new Set();
+  const cov = { scanned: 0, byExtension: {}, skippedTests: 0, skippedMinified: 0, skippedDeclarations: 0, skippedOversized: 0, ignoredFolders: [], symlinksFollowed: 0 };
+  const real = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const visit = (dir, isPackageRoot) => {
+    const rp = real(dir);
+    if (seen.has(rp)) return;
+    seen.add(rp);
     let entries;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
@@ -22929,14 +22942,42 @@ function walkSources(root, opts) {
     for (const e of entries) {
       if (truncated) return;
       const full = join(dir, e.name);
-      if (e.isDirectory()) {
-        if (!IGNORE_DIRS.has(e.name) && !e.name.startsWith(".")) visit(full);
+      let isDir = e.isDirectory();
+      let isFile = e.isFile();
+      if (e.isSymbolicLink()) {
+        try {
+          const st = statSync(full);
+          isDir = st.isDirectory();
+          isFile = st.isFile();
+          if (isDir) cov.symlinksFollowed++;
+        } catch {
+          continue;
+        }
+      }
+      if (isDir) {
+        if (IGNORE_DIRS.has(e.name)) {
+          cov.ignoredFolders.push(`${rel(root, full)} (tool or cache folder)`);
+        } else if (isPackageRoot && ROOT_ONLY_IGNORE.has(e.name)) {
+          cov.ignoredFolders.push(`${rel(root, full)} (build output)`);
+        } else visit(full, existsSync(join(full, "package.json")));
         continue;
       }
-      if (!e.isFile()) continue;
+      if (!isFile) continue;
       const dot = e.name.lastIndexOf(".");
       const ext = dot < 0 ? "" : e.name.slice(dot).toLowerCase();
-      if (!SOURCE_EXT.has(ext) || /\.min\.|\.d\.ts$|\.test\.|\.spec\./.test(e.name)) continue;
+      if (!SOURCE_EXT.has(ext)) continue;
+      if (/\.min\./.test(e.name)) {
+        cov.skippedMinified++;
+        continue;
+      }
+      if (/\.d\.ts$/.test(e.name)) {
+        cov.skippedDeclarations++;
+        continue;
+      }
+      if (/\.(test|spec)\./.test(e.name)) {
+        cov.skippedTests++;
+        continue;
+      }
       let size = 0;
       try {
         size = statSync(full).size;
@@ -22945,6 +22986,7 @@ function walkSources(root, opts) {
       }
       if (Number.isFinite(opts.maxBytes) && size > opts.maxBytes && opts.maxBytes > 0) {
         skipped++;
+        cov.skippedOversized++;
         continue;
       }
       if (files.length >= opts.maxFiles) {
@@ -22952,10 +22994,20 @@ function walkSources(root, opts) {
         return;
       }
       files.push(full);
+      cov.byExtension[ext] = (cov.byExtension[ext] ?? 0) + 1;
     }
   };
-  visit(root);
-  return { files, skipped, truncated };
+  visit(root, true);
+  cov.scanned = files.length;
+  return { files, skipped, truncated, coverage: cov };
+}
+function coverageLine(c) {
+  const parts = [`${c.scanned} files scanned`];
+  if (c.skippedTests) parts.push(`${c.skippedTests} test/spec file(s) skipped`);
+  if (c.skippedMinified + c.skippedDeclarations) parts.push(`${c.skippedMinified + c.skippedDeclarations} minified/.d.ts skipped`);
+  if (c.skippedOversized) parts.push(`${c.skippedOversized} oversized skipped`);
+  if (c.ignoredFolders.length) parts.push(`${c.ignoredFolders.length} folder(s) not entered`);
+  return parts.join(", ");
 }
 var rel = (root, file) => relative(root, file).split(sep).join("/");
 function gitState(dir) {
@@ -23130,7 +23182,7 @@ import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:f
 import { builtinModules } from "node:module";
 import { basename, join as join3 } from "node:path";
 var BUILTINS = new Set(builtinModules.map((m) => m.replace(/^node:/, "")));
-var SCRIPT_EXT = /\.(tsx?|jsx?|mjs|cjs)$/;
+var SCRIPT_EXT = /\.(tsx?|jsx?|mjs|cjs|mts|cts)$/;
 var UI_LIBS = [
   { re: /^(@mui\/|@emotion\/|@chakra-ui\/|antd$|@ant-design\/|@mantine\/|@nextui-org\/|@heroui\/|react-bootstrap|bootstrap$|reactstrap|primereact|semantic-ui|@blueprintjs\/|rsuite|@fluentui\/|@headlessui\/|@radix-ui\/|@tremor\/|daisyui|flowbite)/, kind: "UI kit", hint: "Replace with invin-uix components (Button, Badge, Card, Avatar, Alert, Switch, Separator, Skeleton, DataTable, KpiCard\u2026)." },
   { re: /^(recharts|chart\.js|react-chartjs-2|apexcharts|react-apexcharts|victory|@nivo\/|echarts|echarts-for-react|highcharts|@visx\/|react-vis|reaviz)/, kind: "Charts", hint: "Use invin-uix/ui/chart (AreaChart, BarChart, DonutChart, GaugeChart). The guide mandates reaviz-based charts via the library." },
@@ -23513,11 +23565,11 @@ function scoreProject(path, maxFiles = 1e7) {
   const components = componentStats(collectComponents(root, maxFiles));
   const input = { findings, lines, filesScanned: walked.files.length, gaps, components };
   const score = computeScore(input);
-  const text2 = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, "", formatScore(score)].join("\n");
-  return { score, input, text: text2 };
+  const text2 = [`# Invinsense compliance score: ${root.split("/").pop()}`, `Scanned ${walked.files.length} source files, ${lines.toLocaleString("en-US")} lines${walked.truncated ? " (truncated, raise maxFiles)" : ""}.`, `Coverage: ${coverageLine(walked.coverage)}. Run the coverage command to list exactly what was and was not read.`, "", formatScore(score)].join("\n");
+  return { score, input, text: text2, coverage: walked.coverage };
 }
 function scoreData(path, maxFiles = 1e7) {
-  const { score, input } = scoreProject(path, maxFiles);
+  const { score, input, coverage } = scoreProject(path, maxFiles);
   const count = (s) => input.findings.filter((f) => f.severity === s).length;
   return {
     project: resolve2(path).split("/").pop(),
@@ -23529,6 +23581,7 @@ function scoreData(path, maxFiles = 1e7) {
     filesScanned: input.filesScanned,
     lines: input.lines,
     findings: { errors: count("error"), warnings: count("warning"), info: count("info") },
+    coverage,
     gaps: input.gaps,
     components: input.components
   };
@@ -24497,11 +24550,12 @@ function hotspotsRun(path, top = 10, maxFiles = 1e7) {
     lines: totalLines,
     filesWithFindings: rows.length,
     suppressions: suppressed,
+    coverage: walked.coverage,
     worstFiles: rows.slice(0, top).map((r) => ({ file: r.file, errors: r.e, warnings: r.w, weighted: weight(r), sharePercent: share(weight(r)) })),
     top3SharePercent: share(rows.slice(0, 3).reduce((n, r) => n + weight(r), 0)),
     byRule: [...rules3.entries()].sort((a, b) => b[1].n * (b[1].sev === "error" ? 3 : 1) - a[1].n * (a[1].sev === "error" ? 3 : 1)).slice(0, 15).map(([rule, r]) => ({ rule, severity: r.sev, count: r.n, files: r.files.size, fix: FIX_HINT[rule] ?? null }))
   };
-  const L = [`# Hotspots: ${root.split("/").pop()}`, `Scanned ${walked.files.length} files, ${totalLines.toLocaleString("en-US")} lines. ${rows.length} file(s) have findings. ${suppressed} line(s) carry \`invinsense-allow\`.`, ""];
+  const L = [`# Hotspots: ${root.split("/").pop()}`, `Scanned ${walked.files.length} files, ${totalLines.toLocaleString("en-US")} lines. ${rows.length} file(s) have findings. ${suppressed} line(s) carry \`invinsense-allow\`.`, `Coverage: ${coverageLine(walked.coverage)}.`, ""];
   if (!rows.length) {
     L.push("\u2705 No findings in any file.");
     return { data, text: L.join("\n") };
@@ -24741,10 +24795,40 @@ function reportRun(path, save, maxFiles = 1e7) {
   };
   return { data, text: L.join("\n") };
 }
+function coverageRun(path, list = false, maxFiles = 1e7) {
+  const root = requireRoot(path);
+  const w = walkSources(root, { maxFiles, maxBytes: Infinity });
+  const c = w.coverage;
+  const byDir = /* @__PURE__ */ new Map();
+  for (const f of w.files) {
+    const d = rel(root, f).split("/").slice(0, 2).join("/");
+    byDir.set(d, (byDir.get(d) ?? 0) + 1);
+  }
+  const folders = [...byDir.entries()].sort((a, b) => b[1] - a[1]);
+  const data = {
+    project: root.split("/").pop(),
+    scanned: c.scanned,
+    byExtension: c.byExtension,
+    skipped: { testFiles: c.skippedTests, minified: c.skippedMinified, declarationFiles: c.skippedDeclarations, oversized: c.skippedOversized },
+    foldersNotEntered: c.ignoredFolders,
+    symlinkedFoldersFollowed: c.symlinksFollowed,
+    truncated: w.truncated,
+    filesByFolder: folders.map(([folder, files]) => ({ folder, files })),
+    ...list ? { files: w.files.map((f) => rel(root, f)) } : {}
+  };
+  const L = [`# Scan coverage: ${root.split("/").pop()}`, "", `${coverageLine(c)}.${w.truncated ? " Stopped at the file limit." : ""}`, "", "## Read", "", "| Type | Files |", "|---|---:|", ...Object.entries(c.byExtension).sort((a, b) => b[1] - a[1]).map(([e, n]) => `| ${e} | ${n} |`)];
+  L.push("", "## Not read", "", `- Test and spec files (*.test.*, *.spec.*): ${c.skippedTests}`, `- Minified files (*.min.*): ${c.skippedMinified}`, `- Type declaration files (*.d.ts): ${c.skippedDeclarations}`, `- Oversized files: ${c.skippedOversized}`);
+  L.push(c.ignoredFolders.length ? `- Folders not entered:
+${c.ignoredFolders.map((f) => `  - \`${f}\``).join("\n")}` : "- Folders not entered: none");
+  L.push("", "File types other than css, scss, sass, less, pcss, html, js, jsx, mjs, cjs, ts, tsx, mts, cts, vue, svelte and astro are never read (JSON, Markdown, images).");
+  L.push("", "## Files by folder (top 20)", "", "| Folder | Files |", "|---|---:|", ...folders.slice(0, 20).map(([d, n]) => `| \`${d}\` | ${n} |`));
+  if (list) L.push("", "## Every file read", "", ...w.files.map((f) => `- ${rel(root, f)}`));
+  return { data, text: L.join("\n") };
+}
 
 // src/cli.ts
 import { resolve as resolve5 } from "node:path";
-var COMMANDS = ["score", "hotspots", "routes", "tokens", "report", "audit"];
+var COMMANDS = ["score", "hotspots", "routes", "tokens", "report", "audit", "coverage"];
 var HELP = `Invinsense CLI
 
 Usage: node index.mjs <command> [path] [options]
@@ -24754,6 +24838,7 @@ Options:
   --json            Print JSON only (no prose)
   --min-score N     score/report: exit with code 1 when the score is below N (for CI)
   --top N           hotspots: number of files (default 10)
+  --list            coverage: print every file that was read
   --save            report: write invinsense-report.md and record the score in .invinsense/history.json
   --max-files N     scan limit (default: no limit)
 Path defaults to the current directory.`;
@@ -24807,6 +24892,11 @@ function runCli(argv) {
       case "report": {
         const r = reportRun(path, flag("--save"), maxFiles);
         total = r.data.score.total;
+        out(r.data, r.text);
+        break;
+      }
+      case "coverage": {
+        const r = coverageRun(path, flag("--list"), maxFiles);
         out(r.data, r.text);
         break;
       }
@@ -25479,6 +25569,16 @@ server.registerTool(
   async (a) => safeFmt("check tokens", a.format, () => tokensRun(a.path, a.maxFiles))
 );
 server.registerTool(
+  "invinsense_coverage",
+  {
+    title: "Show exactly which files were scanned and which were skipped",
+    description: "Read-only. Lists what the scanner read (by file type and folder), what it skipped and why (test files, minified, .d.ts, build output folders), and which file types it never reads. Use it when someone says files are missing from a scan. list=true prints every file read.",
+    inputSchema: { path: pathArg, list: external_exports.boolean().default(false).describe("Print every file that was read"), maxFiles: external_exports.number().int().min(1).default(NO_LIMIT), format: fmtArg },
+    annotations: ReadOnly
+  },
+  async (a) => safeFmt("show coverage", a.format, () => coverageRun(a.path, a.list, a.maxFiles))
+);
+server.registerTool(
   "invinsense_report",
   {
     title: "Full Invinsense project report with score trend",
@@ -25650,7 +25750,7 @@ server.registerPrompt(
   })
 );
 var pathP = external_exports.string().describe("ABSOLUTE path of the project root");
-var JSONABLE = /* @__PURE__ */ new Set(["invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components"]);
+var JSONABLE = /* @__PURE__ */ new Set(["invinsense-coverage", "invinsense-score", "invinsense-hotspots", "invinsense-routes", "invinsense-tokens", "invinsense-report", "invinsense-audit-components"]);
 var cmd = (name, title, description, argsSchema, build) => server.registerPrompt(
   name,
   { title, description, argsSchema: JSONABLE.has(name) ? { ...argsSchema, json: external_exports.enum(["yes", "no"]).default("no").describe("yes returns machine-readable JSON only") } : argsSchema },
@@ -25700,6 +25800,13 @@ cmd(
   "Score, trend, hotspots, routes, tokens and component audit",
   { path: pathP, save: external_exports.enum(["yes", "no"]).default("no").describe("yes writes invinsense-report.md and records the score in .invinsense/history.json") },
   ({ path, save }) => `Call \`invinsense_report\` on ${path} with save=${save === "yes"}. Lead with the score and trend, then summarise the three biggest problems in plain words.${save === "yes" ? " Tell me which two files were written." : ""}`
+);
+cmd(
+  "invinsense-coverage",
+  "Coverage: what was scanned",
+  "Which files the scanner read and which it skipped, with the reason",
+  { path: pathP },
+  ({ path }) => `Call \`invinsense_coverage\` on ${path}. Show how many files were read by type, what was skipped and why, and the folders not entered. If I name a missing file, tell me which rule excluded it. Read-only.`
 );
 cmd(
   "invinsense-audit-components",
